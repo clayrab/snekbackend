@@ -14,7 +14,7 @@ var passport = require('passport');
 var LocalStrategy = require('passport-local').Strategy;
 var JwtStrategy = require('passport-jwt').Strategy;
 var ExtractJwt = require('passport-jwt').ExtractJwt;
-
+var models = require('./model.js').models;
 var app = express();
 
 // JWT configration
@@ -61,6 +61,7 @@ app.use(cookieParser());
 
 // app.use('/', routes);
 //app.use('/users', users);
+
 app.get('/api/getnews', async (req, res, next) => {
   let items = null;
   try {
@@ -82,6 +83,34 @@ app.get('/api/getnews', async (req, res, next) => {
     next(err);
   }
 });
+
+app.get('/test', async (req, res, next) => {
+  try {
+    var john = new models.instance.user({
+        name: "John",
+        cardstats: {"three": 10}
+    });
+    var items = null;
+    john.save(function(err){
+      if(err) {
+        console.log(err);
+        items = {"err": "err"};
+      } else {
+        console.log('Yuppiie!');
+        items = {"ok": "ok"};
+      }
+      res.type('application/json');
+      res.status(200);
+      res.send(john);
+    });
+    //items = {"ok": "ok"};
+    console.log(items);
+    //res.type(text/html); res.status(200); res.send(<p>HELLO WORLD!);
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
