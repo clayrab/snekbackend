@@ -84,7 +84,7 @@ app.get('/api/getnews', async (req, res, next) => {
   }
 });
 
-app.get('/test', async (req, res, next) => {
+app.get('/makeUser', async (req, res, next) => {
   try {
     var john = new models.instance.user({
         name: "John",
@@ -94,18 +94,30 @@ app.get('/test', async (req, res, next) => {
     john.save(function(err){
       if(err) {
         console.log(err);
-        items = {"err": "err"};
       } else {
-        console.log('Yuppiie!');
-        items = {"ok": "ok"};
+        console.log("ok");
       }
       res.type('application/json');
       res.status(200);
       res.send(john);
     });
-    //items = {"ok": "ok"};
-    console.log(items);
-    //res.type(text/html); res.status(200); res.send(<p>HELLO WORLD!);
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/getUser', async (req, res, next) => {
+  try {
+    models.instance.user.findOne({name: 'John'}, function(err, user){
+      if(err) throw err;
+      //The variable `john` is a model instance containing the person named `John`
+      //`john` will be undefined if no person named `John` was found
+      console.log('Found ', user.name);
+
+      res.type('application/json');
+      res.status(200);
+      res.send(user);
+    });
   } catch (err) {
     next(err);
   }

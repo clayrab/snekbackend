@@ -35,7 +35,7 @@
 
 // In application, keep all cards in lazy-cached memory
 // When "drawing" cards for a user, read their cardstats and compute the {AllCards}-{SolvedCards}+{FreshSolvedCards}
-// Cards are 'refreshened' based on the core exponential(log) algorithm.
+// Cards are 'refreshened' based on the special exponential(log) algorithm.
 
 INSERT INTO "ll"."user" (username, cardstats)
 VALUES ('bob',{'one': 3, 'two': 5});

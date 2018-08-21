@@ -1,14 +1,14 @@
-
-module.exports = {
-    fields:{
-        name    : "text",
-        cardstats: {
-            type: "map",
-            typeDef: "<varchar, int>"
-        },
-    },
-    key:["name"]
-}
+// 
+// module.exports = {
+//     fields:{
+//         name    : "text",
+//         cardstats: {
+//             type: "map",
+//             typeDef: "<varchar, int>"
+//         },
+//     },
+//     key:["name"]
+// }
 
     // "fields": {
     //
