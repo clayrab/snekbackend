@@ -10,6 +10,7 @@ var bodyParser = require('body-parser'); //required for passport
 // var fetch = require("node-fetch");
 
 // global.fetch = require("node-fetch");
+var jwt = require('jsonwebtoken');
 var passport = require('passport');
 var LocalStrategy = require('passport-local').Strategy;
 var JwtStrategy = require('passport-jwt').Strategy;
@@ -25,8 +26,6 @@ app.use(bodyParser.urlencoded({
 
 app.use(cookieParser());
 //app.use(express.static(path.join(__dirname, 'public')));
-
-
 
 passport.use(new LocalStrategy({
     usernameField: 'user',
@@ -52,13 +51,37 @@ passport.use(new LocalStrategy({
   }
 ));
 
+
+// JWT configration
+var jwtOptions = {}
+//options.jwtFromRequest = ExtractJwt.fromAuthHeader();
+
+//TODO: move this externally and change it
+jwtOptions.secretOrKey = '7x0jhxt"9(thpX6'
+//jwtOptions.jwtFromRequest = ExtractJwt.fromAuthHeaderAsBearerToken();
+jwtOptions.jwtFromRequest = ExtractJwt.fromAuthHeaderWithScheme('JWT');
+// Configure Passport to use JWT strategy to look up Users.
+passport.use('jwt', new JwtStrategy(jwtOptions, function(jwt_payload, done) {
+  console.log("jwt_payload");
+  console.log(jwt_payload);
+  console.warn(models);
+  models.instance.user.findOne({
+    name: jwt_payload.name
+  }, function(err, user) {
+    if (err) {
+      return done(err, false);
+    }
+    if (user) {
+      done(null, user);
+    } else {
+      done(null, false);
+    }
+  })
+}))
+
 app.post('/login', function(req, res, next) {
   try {
     passport.authenticate('local', function(err, user, info) {
-      console.log("authentication done");
-      console.log(err);
-      console.log(user);
-      console.log(info);
       if(err){
       }
       if(info){
@@ -67,49 +90,27 @@ app.post('/login', function(req, res, next) {
         res.send(info);
       }
       if(user){
+        var payload = {name: user.name};
+        var token = jwt.sign(payload, jwtOptions.secretOrKey, {expiresIn: 86400 * 30});
+        jwt.verify(token, jwtOptions.secretOrKey, function(err, data){
+          console.log('err, data');
+          console.log(err, data);
+        });
         res.type('application/json');
         res.status(200);
-        res.send({token: "sometokenhasdfere"});
+        res.send({token: token});
       }
     })(req, res, next);
-      //   if (err) { return next(err); }
-  //   if (!user) { return res.redirect('/login'); }
-  //   req.logIn(user, function(err) {
-  //     if (err) { return next(err); }
-  //     //return res.redirect('/users/' + user.username);
-  //     res.type('application/json');
-  //     res.status(200);
-  //     res.send({token: "sometokenhere"});
-  //   });
-
-
   } catch (err) {
     next(err);
   }
 });
 
-// JWT configration
-var options = {}
-//options.jwtFromRequest = ExtractJwt.fromAuthHeader();
-
-//TODO: move this externally and change it
-options.secretOrKey = '7x0jhxt"9(thpX6'
-
-// Configure Passport to use JWT strategy to look up Users.
-// passport.use('jwt', new JwtStrategy(options, function(jwt_payload, done) {
-//   models.instance.user.findOne({
-//     name: jwt_payload.name
-//   }, function(err, user) {
-//     if (err) {
-//       return done(err, false);
-//     }
-//     if (user) {
-//       done(null, user);
-//     } else {
-//       done(null, false);
-//     }
-//   })
-// }))
+app.get('/secure', passport.authenticate('jwt', { session: false }),
+  function(req, res) {
+    res.send({ok: req.user});
+  }
+);
 
 app.get('/api/getnews', async (req, res, next) => {
   let items = null;
