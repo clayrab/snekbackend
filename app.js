@@ -5,7 +5,7 @@ var fetch = require("node-fetch");
 //var favicon = require('serve-favicon');
 //var logger = require('morgan');
 var cookieParser = require('cookie-parser');
-//var bodyParser = require('body-parser');
+var bodyParser = require('body-parser'); //required for passport
 //var mongoose = require('mongoose');
 // var fetch = require("node-fetch");
 
@@ -16,37 +16,89 @@ var JwtStrategy = require('passport-jwt').Strategy;
 var ExtractJwt = require('passport-jwt').ExtractJwt;
 var models = require('./model.js').models;
 var app = express();
-
-// JWT configration
-var options = {}
-//options.jwtFromRequest = ExtractJwt.fromAuthHeader();
-options.secretOrKey = '7x0jhxt"9(thpX6'
-
 app.use(passport.initialize());
-
-// view engine setup
-// app.set('views', path.join(__dirname, 'views'));
-// app.set('view engine', 'jade');
-
-// uncomment after placing your favicon in /public
-//app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
-//app.use(logger('dev'));
-
-// app.use(bodyParser.json());
-// app.use(bodyParser.urlencoded({
-//   extended: false
-// }));
+// Needed for passport local strategy
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({
+  extended: false
+}));
 
 app.use(cookieParser());
 //app.use(express.static(path.join(__dirname, 'public')));
 
-// Configure Passport to use local strategy for initial authentication.
-// passport.use('local', new LocalStrategy(User.authenticate()));
+
+
+passport.use(new LocalStrategy({
+    usernameField: 'user',
+    passwordField: 'pw'
+  },
+  function(username, password, done) {
+    console.log("password: " + password);
+    console.log(done);
+    models.instance.user.findOne({ name: username }, function (err, user) {
+      if (err) { return done(err); }
+      if (!user) {
+        return done(null, false, { message: 'Incorrect username.' });
+      }
+      // if (!user.validPassword(password)) {
+      //   return done(null, false, { message: 'Incorrect password.' });
+      // }
+      if(password != "asdf") {
+        return done(null, false, { message: 'Incorrect password.' });
+      }
+      return done(null, user);
+    });
+
+  }
+));
+
+app.post('/login', function(req, res, next) {
+  try {
+    passport.authenticate('local', function(err, user, info) {
+      console.log("authentication done");
+      console.log(err);
+      console.log(user);
+      console.log(info);
+      if(err){
+      }
+      if(info){
+        res.type('application/json');
+        res.status(200);
+        res.send(info);
+      }
+      if(user){
+        res.type('application/json');
+        res.status(200);
+        res.send({token: "sometokenhasdfere"});
+      }
+    })(req, res, next);
+      //   if (err) { return next(err); }
+  //   if (!user) { return res.redirect('/login'); }
+  //   req.logIn(user, function(err) {
+  //     if (err) { return next(err); }
+  //     //return res.redirect('/users/' + user.username);
+  //     res.type('application/json');
+  //     res.status(200);
+  //     res.send({token: "sometokenhere"});
+  //   });
+
+
+  } catch (err) {
+    next(err);
+  }
+});
+
+// JWT configration
+var options = {}
+//options.jwtFromRequest = ExtractJwt.fromAuthHeader();
+
+//TODO: move this externally and change it
+options.secretOrKey = '7x0jhxt"9(thpX6'
 
 // Configure Passport to use JWT strategy to look up Users.
 // passport.use('jwt', new JwtStrategy(options, function(jwt_payload, done) {
-//   User.findOne({
-//     _id: jwt_payload.id
+//   models.instance.user.findOne({
+//     name: jwt_payload.name
 //   }, function(err, user) {
 //     if (err) {
 //       return done(err, false);
@@ -58,9 +110,6 @@ app.use(cookieParser());
 //     }
 //   })
 // }))
-
-// app.use('/', routes);
-//app.use('/users', users);
 
 app.get('/api/getnews', async (req, res, next) => {
   let items = null;
