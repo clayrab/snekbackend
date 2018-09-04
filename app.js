@@ -32,13 +32,13 @@ passport.use(new LocalStrategy({
     passwordField: 'pw'
   },
   function(username, password, done) {
-    console.log("password: " + password);
-    console.log(done);
     models.instance.user.findOne({ name: username }, function (err, user) {
       if (err) { return done(err); }
       if (!user) {
         return done(null, false, { message: 'Incorrect username.' });
       }
+      console.log("user");
+      console.log(user);
       // if (!user.validPassword(password)) {
       //   return done(null, false, { message: 'Incorrect password.' });
       // }
@@ -51,16 +51,10 @@ passport.use(new LocalStrategy({
   }
 ));
 
-
-// JWT configration
 var jwtOptions = {}
-//options.jwtFromRequest = ExtractJwt.fromAuthHeader();
-
 //TODO: move this externally and change it
 jwtOptions.secretOrKey = '7x0jhxt"9(thpX6'
-//jwtOptions.jwtFromRequest = ExtractJwt.fromAuthHeaderAsBearerToken();
 jwtOptions.jwtFromRequest = ExtractJwt.fromAuthHeaderWithScheme('JWT');
-// Configure Passport to use JWT strategy to look up Users.
 passport.use('jwt', new JwtStrategy(jwtOptions, function(jwt_payload, done) {
   console.log("jwt_payload");
   console.log(jwt_payload);
@@ -108,7 +102,7 @@ app.post('/login', function(req, res, next) {
 
 app.get('/secure', passport.authenticate('jwt', { session: false }),
   function(req, res) {
-    res.send({ok: req.user});
+    res.send(req.user);
   }
 );
 
