@@ -1,4 +1,18 @@
 
+// This script only populates dev db
+// This script was otherwise abandoned in favor of express-cassandra
+// The model can now be found in model.js.
+// This file can be deleted safely.
+
+// In application, keep all cards in lazy-cached memory
+// When "drawing" cards for a user, read their cardstats and compute the {AllCards}-{SolvedCards}+{FreshSolvedCards}
+// Cards are 'refreshened' based on the special exponential(log) algorithm.
+
+INSERT INTO "ll"."user" (username, cardstats)
+VALUES ('bob',{'one': 3, 'two': 5});
+
+
+
 // CREATE KEYSPACE ll
 //   WITH REPLICATION = {
 //    'class' : 'SimpleStrategy',
@@ -32,12 +46,5 @@
 //   cardstats map<varchar,int>,
 //   PRIMARY KEY (name,appName)
 // );
-
-// In application, keep all cards in lazy-cached memory
-// When "drawing" cards for a user, read their cardstats and compute the {AllCards}-{SolvedCards}+{FreshSolvedCards}
-// Cards are 'refreshened' based on the special exponential(log) algorithm.
-
-INSERT INTO "ll"."user" (username, cardstats)
-VALUES ('bob',{'one': 3, 'two': 5});
 
 //UPDATE cycling.cyclist_teams SET teams[2006] = 'Team DSB - Ballast Nedam' WHERE id = 5b6962dd-3f90-4c93-8f61-eabfa4a803e2;
