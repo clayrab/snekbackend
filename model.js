@@ -20,11 +20,13 @@ module.exports = {
 let models = module.exports.models;
 var MyModel = models.loadSchema('user', {
     fields:{
-        name    : "varchar",
+        name      : "varchar",
         cardstats : {
             type: "map",
             typeDef: "<varchar, int>"
-        }
+        },
+        privkey   : "varchar",
+        pubkey   : "varchar"
     },
     key:["name"]
 });
