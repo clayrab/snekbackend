@@ -3,7 +3,7 @@
 //var logger = require('morgan');
 //var mongoose = require('mongoose');
 // global.fetch = require("node-fetch");
-var w3 = require('web3');
+var web3 = require('web3');
 var express = require('express');
 var fetch = require("node-fetch");
 var cookieParser = require('cookie-parser');
@@ -15,8 +15,12 @@ var JwtStrategy = require('passport-jwt').Strategy;
 var ExtractJwt = require('passport-jwt').ExtractJwt;
 
 var models = require('./model.js').models;
+
 var rewardTokenABI = require('/Users/clay/projects/rewardCoin/truffle/build/contracts/RewardToken.json');
-console.log(rewardTokenABI);
+var web3 = new web3(web3.givenProvider || "ws://127.0.0.1:9545");
+// TODO add gas and gasprice options to contract
+var contract = new web3.eth.Contract(rewardTokenABI.abi, "0xf08df3efdd854fede77ed3b2e515090eee765154");
+
 var app = express();
 app.use(passport.initialize());
 // Needed for passport local strategy
@@ -24,11 +28,9 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
   extended: false
 }));
-
 app.use(cookieParser());
+
 //app.use(express.static(path.join(__dirname, 'public')));
-//var web3 = new w3(w3.givenProvider || "ws://localhost:8546");
-var web3 = new w3(w3.givenProvider || "ws://127.0.0.1:9545");
 
 passport.use(new LocalStrategy({
     usernameField: 'user',
@@ -42,11 +44,6 @@ passport.use(new LocalStrategy({
       if (!user) {
         return done(null, false, { message: 'Incorrect username.' });
       }
-      console.log("user");
-      console.log(user);
-      // if (!user.validPassword(password)) {
-      //   return done(null, false, { message: 'Incorrect password.' });
-      // }
       if(password != "asdf") {
         return done(null, false, { message: 'Incorrect password.' });
       }
@@ -61,9 +58,6 @@ var jwtOptions = {}
 jwtOptions.secretOrKey = '7x0jhxt"9(thpX6'
 jwtOptions.jwtFromRequest = ExtractJwt.fromAuthHeaderWithScheme('JWT');
 passport.use('jwt', new JwtStrategy(jwtOptions, function(jwt_payload, done) {
-  console.log("jwt_payload");
-  console.log(jwt_payload);
-  console.warn(models);
   models.instance.user.findOne({
     name: jwt_payload.name
   }, function(err, user) {
@@ -111,88 +105,81 @@ app.get('/secure', passport.authenticate('jwt', { session: false }),
     res.send(req.user);
   }
 );
+// (0) 0x627306090abab3a6e1400e9345bc60c78a8bef57
+// (1) 0xf17f52151ebef6c7334fad080c5704d77216b732
+// (2) 0xc5fdf4076b8f3a5357c5e395ab970b5b54098fef
+// (3) 0x821aea9a577a9b44299b9c15c88cf3087f3b5544
+//
+// Private Keys:
+// (0) c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3
+// (1) ae6ae8e5ccbfb04590405997ee2d52d2b330726137b875053c36d94e974d162f
+// (2) 0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1
+// (3) c88b703fb0
 
-//app.get('/sendTransaction', passport.authenticate('jwt', { session: false }),
-app.get('/sendtransaction', async (req, res, next) => {
+// removeAuthorizedEntityClassA(address addr) public returns(bool)
+// isClassAAuthorized(address addr) public view returns(bool)
+// reward(address _to, uint256 _value) public onlyByClassA returns(bool)
+// addAuthorizedEntityClassA(address addr) public onlyBy(owner) returns(bool)
+
+app.post('/adddealer', passport.authenticate('jwt', { session: false }), async(req, res) => {
+  //var receipt = await contract.methods.transfer("0xf17f52151ebef6c7334fad080c5704d77216b732", 101).send({from: req.user.pubkey});
+});
+
+app.post('/sendtokens', passport.authenticate('jwt', { session: false }), async(req, res) => {
+  var retData = {};
+  var receipt = await contract.methods.transfer(req.body.to, req.body.amount).send({from: req.user.pubkey});
+  retData.txHash = receipt.transactionHash;
+  res.type('application/json');
+  res.status(200);
+  res.send(retData);
+});
+
+app.get('/gettokendata', passport.authenticate('jwt', { session: false }), async(req, res) => {
+//app.get('/gettokendata', async (req, res, next) => {
   try {
-    console.log("sendtransaction");
+    var retData = {};
     var account = web3.eth.accounts.privateKeyToAccount("0xc87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3");
-    web3.eth.accounts.wallet.add(account);
-    //todo encrypt the wallet and create api
-
-// var sampleContractABI = [{
-//   “constant”:true,
-//   ”inputs”:[],
-//   ”name”:”name”,
-//   ”outputs”:[
-//     {
-//       “name”:””,
-//       ”type”:”string”}],
-//       ”payable”:false,
-//       ”stateMutability”:”view”,
-//       ”type”:”function”
-//     },{
-//       “constant”:false,
-//       ”inputs”:[{
-//       “name”:”_name”,
-//       ”type”:”string”
-//     }],
-//   ”name”:”set”,
-//   ”outputs”:[],
-//   ”payable”:false,
-//   ”stateMutability”:”nonpayable”,
-//   ”type”:”function”
-//   },{
-//       “constant”:true,
-//       ”inputs”:[],
-//       ”name”:”get”,
-//       ”outputs”:[{“name”:””,”type”:”string”}],”payable”:false,”stateMutability”:”view”,”type”:”function”},{“anonymous”:false,”inputs”:[{“indexed”:false,”name”:”name”,”type”:”string”}],”name”:”LogSet”,”type”:”event”}];
-
-    var contract1 = new web3.eth.Contract(rewardTokenABI);
-    //var contract1 = new web3.eth.Contract(abi, address, {gasPrice: '12345678', from: fromAddress});
-
-    var contract2 = contract1.clone();
-    contract2.options.address = address2;
-
-    (contract1.options.address !== contract2.options.address);
-
-    //console.log(acct);
-    console.log(web3.eth.accounts.wallet);
-    //web3.eth.accounts.signTransaction(tx, privateKey [, callback]);
-    web3.eth.accounts.signTransaction({
-      to: '0xF0109fC8DF283027b6285cc889F5aA624EaC1F55',
-      value: '1000000000',
-      gas: 2000000,
-      gasPrice: '234567897654321'
-    }, '0xc87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3')
-    web3.eth.getBalance("0x627306090abab3a6e1400e9345bc60c78a8bef57", function(err, res) {
-      console.log(res.toString(10)); // because you get a BigNumber
-
+    retData.balance = await contract.methods.balanceOf(req.user.pubkey).call(function(error, result){
+      // TODO handle these errors
+      return result;
     });
-    web3.eth.getBalance("0xF0109fC8DF283027b6285cc889F5aA624EaC1F55", function(err, res) {
-      console.log(res.toString(10)); // because you get a BigNumber
-
+    retData.owner = await contract.methods.owner().call(function(error, result){
+      if(error !== null) {
+        // TODO handle these errors
+      }
+      return result;
     });
-
-
-    //console.log(web3.eth.sendTransaction);
-    web3.eth.sendTransaction({from: '0x627306090abab3a6e1400e9345bc60c78a8bef57', data: '0x432...'})
-    .once('transactionHash', function(hash){
-      console.log("transactionHash");
-     })
-    .once('receipt', function(receipt){
-      console.log("receipt");
-    })
-    .on('confirmation', function(confNumber, receipt){
-      console.log("confirmation");
-    })
-    .on('error', function(error){
-      console.log("error");
-    })
-    .then(function(receipt){ // will be fired once the receipt is mined
-      console.log("mined");
+    retData.ethBalance = await web3.eth.getBalance(req.user.pubkey, function(err, res) {
+      return res.toString(10);
     });
+    //console.log(receipt);
+    // .once('transactionHash', function(hash){
+    //   console.log("transactionHash");
+    //  })
+    // .once('receipt', function(receipt){
+    //   console.log("receipt");
+    // })
+    // .on('confirmation', function(confNumber, receipt){
+    //   console.log("confirmation");
+    // })
+    // .on('error', function(error){
+    //   console.log("error");
+    // })
+    // .then(function(receipt){ // will be fired once the receipt is mined
+    //   console.log("mined");
+    // });
+ //transfer(address _to, uint256 _value)
 
+    // var tx = web3.eth.accounts.signTransaction({
+    //   to: '0xF0109fC8DF283027b6285cc889F5aA624EaC1F55',
+    //   value: '1000000000',
+    //   gas: 2000000,
+    //   gasPrice: '234567897654321'
+    // }, '0xc87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3');
+
+    res.type('application/json');
+    res.status(200);
+    res.send(retData);
   } catch (err) {
     next(err);
   }

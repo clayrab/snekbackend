@@ -1,5 +1,8 @@
+//
 // Script to convert output of "truffle develop" into users for cassandra
 // >>> node convertTruffleDB.js  | pbcopy
+//
+
 function Enum() {
     for (var i in arguments) {
         this[arguments[i]] = i;
