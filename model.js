@@ -1,5 +1,21 @@
 
 var ExpressCassandra = require('express-cassandra');
+
+// COLLECTION TYPES:
+// mymap: {
+//         type: "map",
+//         typeDef: "<varchar, text>"
+//     },
+// Lists have limitations and specific performance considerations. Use a frozen
+// list to decrease impact. In general, use a set instead of list.
+//     mylist: {
+//         type: "list",
+//         typeDef: "<varchar>"
+//     },
+//     myset: {
+//         type: "set",
+//         typeDef: "<varchar>"
+//     }
 module.exports = {
  models:  ExpressCassandra.createClient({
     clientOptions: {
@@ -9,35 +25,62 @@ module.exports = {
         queryOptions: {consistency: ExpressCassandra.consistencies.one}
     },
     ormOptions: {
-        defaultReplicationStrategy : {
-            class: 'SimpleStrategy',
-            replication_factor: 1
+      udts: {
+        contract : {
+          name          : "varchar",
+          version_major : "int",
+          version_minor : "varchar",
+          address       : "varchar"
         },
-        migration: 'safe',
+      },
+      udfs: {
+        fLog: {
+            language: 'java',
+            code: 'return Double.valueOf(Math.log(input.doubleValue()));',
+            returnType: 'double',
+            inputs: {
+                input: 'double'
+            }
+        },
+      },
+      defaultReplicationStrategy : {
+          class: 'SimpleStrategy',
+          replication_factor: 1
+      },
+      migration: 'safe',
     }
   })
 };
 let models = module.exports.models;
 var MyModel = models.loadSchema('user', {
-    fields:{
-        name      : "varchar",
-        cardstats : {
-            type: "map",
-            typeDef: "<varchar, int>"
-        },
-        privkey   : "varchar",
-        pubkey   : "varchar"
+  fields:{
+    name      : "varchar",
+    contracts :  {
+      type: 'frozen',
+      typeDef: '<map<varchar,contract>>'
     },
-    key:["name"]
+    privkey   : "varchar",
+    pubkey   : "varchar"
+  },
+  key:["name"]
 });
-// MyModel or models.instance.Person can now be used as the model instance
-//console.log(models.instance.user === MyModel);
-
+// MyModel.syncDB(function(err, result) {
+//     if (err) throw err;
+// });
+// var MyModel = models.loadSchema('contract', {
+//   fields:{
+//     username      : "varchar",
+//     name          : "varchar",
+//     version_major : "int",
+//     version_minor : "varchar",
+//     address       : "varchar",
+//     abi           : "varchar"
+//   },
+//   key:["name"]
+// });
 // sync the schema definition with the cassandra database table
 // if the schema has not changed, the callback will fire immediately
 // otherwise express-cassandra will try to migrate the schema and fire the callback afterwards
 MyModel.syncDB(function(err, result) {
     if (err) throw err;
-    // result == true if any database schema was updated
-    // result == false if no schema change was detected in your models
 });

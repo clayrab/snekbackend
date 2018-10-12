@@ -11,6 +11,7 @@
     "debug": "~2.6.9",
     "express": "~4.16.0",
     "express-cassandra": "^2.2.3",
+    "hdkey": "^1.1.0",
     "http-errors": "~1.6.2",
     "morgan": "~1.9.0",
     "node-fetch": "^2.2.0",

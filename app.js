@@ -1,7 +1,7 @@
 // var path = require('path');
-//var favicon = require('serve-favicon');
-//var logger = require('morgan');
-//var mongoose = require('mongoose');
+// var favicon = require('serve-favicon');
+// var logger = require('morgan');
+// var mongoose = require('mongoose');
 // global.fetch = require("node-fetch");
 var web3 = require('web3');
 var express = require('express');
@@ -13,13 +13,14 @@ var passport = require('passport');
 var LocalStrategy = require('passport-local').Strategy;
 var JwtStrategy = require('passport-jwt').Strategy;
 var ExtractJwt = require('passport-jwt').ExtractJwt;
+var HDKey = require('hdkey');
+var crypto = require('crypto');
 
 var models = require('./model.js').models;
-
-var rewardTokenABI = require('/Users/clay/projects/rewardCoin/truffle/build/contracts/RewardToken.json');
+var rewardTokenABI = require('./eth/abi/RewardToken.json');
+// var testTokenABI = require('/Users/clay/projects/rewardCoin/truffle/build/contracts/TestToken.json');
 var web3 = new web3(web3.givenProvider || "ws://127.0.0.1:9545");
 // TODO add gas and gasprice options to contract
-var contract = new web3.eth.Contract(rewardTokenABI.abi, "0xf08df3efdd854fede77ed3b2e515090eee765154");
 
 var app = express();
 app.use(passport.initialize());
@@ -49,7 +50,6 @@ passport.use(new LocalStrategy({
       }
       return done(null, user);
     });
-
   }
 ));
 
@@ -76,13 +76,14 @@ app.post('/login', function(req, res, next) {
   try {
     passport.authenticate('local', function(err, user, info) {
       if(err){
-      }
-      if(info){
+        res.type('application/json');
+        res.status(200);
+        res.send(err);
+      } else if(info){
         res.type('application/json');
         res.status(200);
         res.send(info);
-      }
-      if(user){
+      } else if(user){
         var payload = {name: user.name};
         var token = jwt.sign(payload, jwtOptions.secretOrKey, {expiresIn: 86400 * 30});
         jwt.verify(token, jwtOptions.secretOrKey, function(err, data){
@@ -127,103 +128,191 @@ app.post('/adddealer', passport.authenticate('jwt', { session: false }), async(r
 
 app.post('/sendtokens', passport.authenticate('jwt', { session: false }), async(req, res) => {
   var retData = {};
+  var contract = new web3.eth.Contract(rewardTokenABI.abi);
   var receipt = await contract.methods.transfer(req.body.to, req.body.amount).send({from: req.user.pubkey});
   retData.txHash = receipt.transactionHash;
   res.type('application/json');
   res.status(200);
   res.send(retData);
-});
-
-app.get('/gettokendata', passport.authenticate('jwt', { session: false }), async(req, res) => {
-//app.get('/gettokendata', async (req, res, next) => {
+})
+app.post('/getcontractdata', passport.authenticate('jwt', { session: false }), async(req, res, next) => {
   try {
-    var retData = {};
-    var account = web3.eth.accounts.privateKeyToAccount("0xc87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3");
-    retData.balance = await contract.methods.balanceOf(req.user.pubkey).call(function(error, result){
-      // TODO handle these errors
-      return result;
-    });
-    retData.owner = await contract.methods.owner().call(function(error, result){
-      if(error !== null) {
+    var contract = new web3.eth.Contract(rewardTokenABI.abi);
+    models.instance.user.findOne({name: req.user.name}, async(err, user) => {
+      if(err) throw err;
+      var retData = {};
+      contract.options.address = user.contracts[req.body.name].address;
+      retData.balance = await contract.methods.balanceOf(req.user.pubkey).call(function(error, result){
         // TODO handle these errors
-      }
-      return result;
-    });
-    retData.ethBalance = await web3.eth.getBalance(req.user.pubkey, function(err, res) {
-      return res.toString(10);
-    });
-    //console.log(receipt);
-    // .once('transactionHash', function(hash){
-    //   console.log("transactionHash");
-    //  })
-    // .once('receipt', function(receipt){
-    //   console.log("receipt");
-    // })
-    // .on('confirmation', function(confNumber, receipt){
-    //   console.log("confirmation");
-    // })
-    // .on('error', function(error){
-    //   console.log("error");
-    // })
-    // .then(function(receipt){ // will be fired once the receipt is mined
-    //   console.log("mined");
-    // });
- //transfer(address _to, uint256 _value)
-
-    // var tx = web3.eth.accounts.signTransaction({
-    //   to: '0xF0109fC8DF283027b6285cc889F5aA624EaC1F55',
-    //   value: '1000000000',
-    //   gas: 2000000,
-    //   gasPrice: '234567897654321'
-    // }, '0xc87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3');
-
-    res.type('application/json');
-    res.status(200);
-    res.send(retData);
-  } catch (err) {
-    next(err);
-  }
-});
-
-
-app.get('/api/getnews', async (req, res, next) => {
-  let items = null;
-  try {
-    const url = 'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Freactjsnews.com%2Ffeed.xml';
-    await fetch(url)
-    .then(response => response.json())
-    .then((data) => {
-      if (data.status === 'ok') {
-        items = data.items;
-      }
-    }).catch((err) => {
-      throw err;
-    });
-    //res.type(text/html); res.status(200); res.send(<p>HELLO WORLD!);
-    res.type('application/json');
-    res.status(200);
-    res.send(items);
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get('/makeUser', async (req, res, next) => {
-  try {
-    var john = new models.instance.user({
-        name: "John",
-        cardstats: {"three": 10}
-    });
-    var items = null;
-    john.save(function(err){
-      if(err) {
-        console.log(err);
-      } else {
-        console.log("ok");
-      }
+        return result;
+      });
+      retData.owner = await contract.methods.owner().call(function(error, result){
+        if(error !== null) {
+          // TODO handle these errors
+        }
+        return result;
+      });
+      retData.ethBalance = await web3.eth.getBalance(req.user.pubkey, function(err, res) {
+        return res.toString(10);
+      });
       res.type('application/json');
       res.status(200);
-      res.send(john);
+      res.send(retData);
+    });
+
+
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/getcontracts', passport.authenticate('jwt', { session: false }), async(req, res, next) => {
+  try {
+    models.instance.user.findOne({name: req.user.name}, function(err, user){
+      if(err) throw err;
+      res.type('application/json');
+      res.status(200);
+      res.send(user.contracts || []);
+    });
+
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/preparecontract', passport.authenticate('jwt', { session: false }), async(req, res, next) => {
+  // TODO write this
+  // Should estimate gas cost, return to user, confirm, then deploy/send via /createcontract
+  try {
+
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/createcontract', passport.authenticate('jwt', { session: false }), async(req, res, next) => {
+  // TODO validate
+  // console.log(req.body.name);
+  // console.log(req.body.decimals);
+  // console.log(req.body.totalSupply);
+
+  try {
+    // let newContract = {
+    //     name: req.body.name,
+    //     username: req.user.name,
+    //     version_major : 0,
+    //     version_minor : "001",
+    //     abi: rewardTokenABI.abi
+    // };
+    // args to contract constructor
+    // constructor(bytes32 name, bytes32 symbol, uint8 decimals, uint256 totalSupply)
+    let args = [web3.utils.asciiToHex(req.body.name), req.body.decimals, req.body.totalSupply];
+    var block = await web3.eth.getBlock("latest")
+    let gasEstimate = await web3.eth.estimateGas({data: rewardTokenABI.bytecode})
+    let rewardContract = new web3.eth.Contract(rewardTokenABI.abi);
+    let deployTx = rewardContract.deploy({data: rewardTokenABI.bytecode, arguments : args});
+    console.log("gasLimit: " + block.gasLimit);
+    console.log("gas estimate:" + gasEstimate);
+    deployTx.send({
+      from: req.user.pubkey,
+      gas: 4000000, // 4m is ~ the limit
+      gasPrice: 10000000,
+    }, function(error, transactionHash){
+      console.log("transcationhash: " + transactionHash);
+    })
+    .on('error', function(error){
+      console.log("error: " + error);
+    })
+    .on('transactionHash', function(transactionHash){
+      console.log("on transcationhash: " + transactionHash);
+    })
+    .on('receipt', function(receipt){
+      console.log("receipt.contractAddress"); // contains the new contract address
+      console.log(receipt.contractAddress); // contains the new contract address
+      models.instance.user.findOne({name: req.user.name}, function(err, user){
+        if(err) throw err;
+        let contracts = user.contracts || {};
+        contracts[req.body.name] = {
+          name: req.body.name,
+          address: receipt.contractAddress,
+          version_major: 0,
+          version_minor: "001",
+        };
+        user.contracts = contracts;
+        user.save(function(err){
+          res.type('application/json');
+          res.status(200);
+          res.send(user);
+        });
+      });
+    })
+    .on('confirmation', function(confirmationNumber, receipt){
+      // fires each time tx is mined up to the 24th confirmationNumber
+      console.log("confirmationNumber: " + confirmationNumber);
+     })
+    .then(function(newContractInstance){
+      console.log("newContractInstance.options.address");
+      console.log(newContractInstance.options.address);
+    });
+
+    // res.type('application/json');
+    // res.status(200);
+    // res.send({name: newContract.name});
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+app.post('/createuserfromvin', async (req, res, next) => {
+  console.log(req.body.username);
+  console.log(req.body.vin);
+
+  let entropy = crypto.randomBytes(64).toString('hex');
+  //web3.utils.randomHex(size);
+  var acct = web3.eth.accounts.create([entropy]);
+//-- address - string: The account address.
+//-- privateKey - string: The accounts private key. This should never be shared or stored unencrypted in localstorage! Also make sure to null the memory after usage.
+//-- signTransaction(tx [, callback]) - Function: The function to sign transactions. See web3.eth.accounts.signTransaction() for more.
+//-- sign(data) - Function: The function to sign transactions. See web3.eth.accounts.sign() for more.
+//-- web3.eth.accounts.privateKeyToAccount(privateKey);
+//-- web3.eth.accounts.recoverTransaction(rawTransaction);
+//--    Recovers the Ethereum address which was used to sign the given RLP encoded transaction.
+//--   This is checking a digital signature?
+//--
+//--
+//--
+//--
+//--
+//--
+//--
+
+});
+app.post('/createuser', async (req, res, next) => {
+  // TODO: finish this function
+  console.log(req.body.username);
+  console.log(req.body.pubkey);
+  console.log(req.body.privkey);
+  console.log(req.body.vin);
+  try {
+    var newuser = new models.instance.user({
+        name: req.body.username,
+        privkey : req.body.privkey,
+        pubkey: req.body.pubkey,
+    });
+    var items = null;
+    newuser.save(function(err){
+      if(err) {
+        res.type('application/json');
+        res.status(500);
+        res.send(err);
+      } else {
+        res.type('application/json');
+        res.status(200);
+        console.log("newuser");
+        console.log(newuser);
+        res.send(newuser);
+      }
     });
   } catch (err) {
     next(err);
@@ -247,6 +336,21 @@ app.get('/getUser', async (req, res, next) => {
   }
 });
 
+app.get('/getusers', async (req, res, next) => {
+  try {
+    var query = {
+      $limit: 10
+    }
+    models.instance.user.find(query, {raw: true}, function(err, users){
+      if(err) throw err;
+      res.type('application/json');
+      res.status(200);
+      res.send(users);
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -256,15 +360,10 @@ app.use(function(req, res, next) {
 });
 
 // error handlers
-
 app.use(function(err, req, res, next) {
   res.status(err.status || 500);
   res.type('application/json');
   res.send({error: err.message});
-  // res.render('error', {
-  //   message: err.message,
-  //   error: {}
-  // });
 });
 
 
