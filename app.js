@@ -18,6 +18,8 @@ var crypto = require('crypto');
 
 var models = require('./model.js').models;
 var rewardTokenABI = require('./eth/abi/RewardToken.json');
+var dgtTokenABI = require('./eth/abi/DGT.json');
+var dgtSubTokenABI = require('./eth/abi/DGTSubToken.json');
 // var testTokenABI = require('/Users/clay/projects/rewardCoin/truffle/build/contracts/TestToken.json');
 var web3 = new web3(web3.givenProvider || "ws://127.0.0.1:9545");
 // TODO add gas and gasprice options to contract
@@ -71,6 +73,9 @@ passport.use('jwt', new JwtStrategy(jwtOptions, function(jwt_payload, done) {
     }
   })
 }))
+
+
+
 
 app.post('/login', function(req, res, next) {
   try {
@@ -135,32 +140,44 @@ app.post('/sendtokens', passport.authenticate('jwt', { session: false }), async(
   res.status(200);
   res.send(retData);
 })
+
 app.post('/getcontractdata', passport.authenticate('jwt', { session: false }), async(req, res, next) => {
+  // TODO: validate these
+  console.log(req.body.name);
+
   try {
-    var contract = new web3.eth.Contract(rewardTokenABI.abi);
-    models.instance.user.findOne({name: req.user.name}, async(err, user) => {
+    models.instance.contract.findOne({name: 'DGT'}, async function(err, dgtDBObj){
       if(err) throw err;
       var retData = {};
-      contract.options.address = user.contracts[req.body.name].address;
-      retData.balance = await contract.methods.balanceOf(req.user.pubkey).call(function(error, result){
-        // TODO handle these errors
-        return result;
-      });
-      retData.owner = await contract.methods.owner().call(function(error, result){
-        if(error !== null) {
-          // TODO handle these errors
-        }
-        return result;
-      });
-      retData.ethBalance = await web3.eth.getBalance(req.user.pubkey, function(err, res) {
-        return res.toString(10);
-      });
-      res.type('application/json');
-      res.status(200);
-      res.send(retData);
+      if(dgtDBObj != null) {
+        var dgtContract = new web3.eth.Contract(dgtTokenABI.abi, dgtDBObj.address);
+        var dgtSubContract = new web3.eth.Contract(dgtSubTokenABI.abi);
+        dgtContract.methods.getSubTokens().call(async function(error, addresses){
+          for(let i = 0; i < addresses.length; i++) {
+            dgtSubContract.options.address = addresses[i];
+            var contractName = await dgtSubContract.methods.name().call(function(error, name){
+              return name;
+            });
+            if(contractName == req.body.name) {
+              break;
+            }
+          }
+          retData.balance = await dgtSubContract.methods.balanceOf(req.user.pubkey).call(function(error, result){
+            return result;
+          });
+          retData.owner = await dgtSubContract.methods.owner().call(function(error, result){
+            return result;
+          });
+          retData.ethBalance = await web3.eth.getBalance(req.user.pubkey, function(error, result) {
+            return res.toString(10);
+          });
+
+          res.type('application/json');
+          res.status(200);
+          res.send(retData);
+        });
+      }
     });
-
-
   } catch (err) {
     next(err);
   }
@@ -168,13 +185,34 @@ app.post('/getcontractdata', passport.authenticate('jwt', { session: false }), a
 
 app.get('/getcontracts', passport.authenticate('jwt', { session: false }), async(req, res, next) => {
   try {
-    models.instance.user.findOne({name: req.user.name}, function(err, user){
+    models.instance.contract.findOne({name: 'DGT'}, async function(err, dgtDBObj){
       if(err) throw err;
-      res.type('application/json');
-      res.status(200);
-      res.send(user.contracts || []);
-    });
+      var retArray = [];
+      if(dgtDBObj != null) {
+        var dgtContract = new web3.eth.Contract(dgtTokenABI.abi, dgtDBObj.address);
+        var dgtSubContract = new web3.eth.Contract(dgtSubTokenABI.abi);
+        dgtContract.methods.getSubTokens().call(async function(error, addresses){
+          for(let i = 0; i < addresses.length; i++) {
+            console.log(i);
+            console.log(addresses[i]);
 
+            dgtSubContract.options.address = addresses[i];
+            await dgtSubContract.methods.name().call(function(error, name){
+              console.log("name");
+              console.log(web3.utils.hexToUtf8(name));
+              retArray.push({
+                "name": web3.utils.hexToUtf8(name).trim(),
+                "address": addresses[i],
+              });
+            });
+          }
+          res.type('application/json');
+          res.status(200);
+          res.send(retArray);
+        });
+      }
+
+    });
   } catch (err) {
     next(err);
   }
@@ -190,29 +228,213 @@ app.post('/preparecontract', passport.authenticate('jwt', { session: false }), a
   }
 });
 
-app.post('/createcontract', passport.authenticate('jwt', { session: false }), async(req, res, next) => {
+
+app.post('/createdgttoken', passport.authenticate('jwt', { session: false }), async(req, res, next) => {
   // TODO validate
-  // console.log(req.body.name);
-  // console.log(req.body.decimals);
-  // console.log(req.body.totalSupply);
+  console.log(req.body.name);
+  console.log(req.body.decimals);
+  console.log(req.body.totalSupply);
 
   try {
-    // let newContract = {
-    //     name: req.body.name,
-    //     username: req.user.name,
-    //     version_major : 0,
-    //     version_minor : "001",
-    //     abi: rewardTokenABI.abi
-    // };
-    // args to contract constructor
-    // constructor(bytes32 name, bytes32 symbol, uint8 decimals, uint256 totalSupply)
     let args = [web3.utils.asciiToHex(req.body.name), req.body.decimals, req.body.totalSupply];
-    var block = await web3.eth.getBlock("latest")
-    let gasEstimate = await web3.eth.estimateGas({data: rewardTokenABI.bytecode})
-    let rewardContract = new web3.eth.Contract(rewardTokenABI.abi);
-    let deployTx = rewardContract.deploy({data: rewardTokenABI.bytecode, arguments : args});
+    var block = await web3.eth.getBlock("latest");
+    let gasEstimate = await web3.eth.estimateGas({data: dgtTokenABI.bytecode});
+    let rewardContract = new web3.eth.Contract(dgtTokenABI.abi);
+    let deployTx = rewardContract.deploy({data: dgtTokenABI.bytecode, arguments : args});
     console.log("gasLimit: " + block.gasLimit);
     console.log("gas estimate:" + gasEstimate);
+    deployTx.send({
+      from: req.user.pubkey,
+      gas: 4000000, // 4m is ~ the limit
+      gasPrice: 10000000,
+    }, function(error, transactionHash){
+      console.log("transcationhash: " + transactionHash);
+    })
+    .on('error', function(error){
+      console.log("error: " + error);
+    })
+    .on('transactionHash', function(transactionHash){
+      console.log("on transcationhash: " + transactionHash);
+    })
+    .on('receipt', function(receipt){
+      console.log("receipt.contractAddress"); // contains the new contract address
+      console.log(receipt.contractAddress); // contains the new contract address
+      var newContract = new models.instance.contract({
+          name: req.body.name,
+          version_major: 0,
+          version_minor: "001",
+          address: receipt.contractAddress,
+          abi: rewardTokenABI.abi
+      });
+      newContract.save(function(err){
+        res.type('application/json');
+        res.status(200);
+        res.send(newContract);
+      });
+    })
+    .on('confirmation', function(confirmationNumber, receipt){
+      // fires each time tx is mined up to the 24th confirmationNumber
+      console.log("confirmationNumber: " + confirmationNumber);
+     })
+    .then(function(newContractInstance){
+      console.log("newContractInstance.options.address");
+      console.log(newContractInstance.options.address);
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/createdgtsubtoken', passport.authenticate('jwt', { session: false }), async(req, res, next) => {
+  //TODO: validate
+  console.log(req.body.name);
+  console.log(req.body.totalSupply);
+
+    try {
+      models.instance.contract.findOne({name: 'DGT'}, async function(err, dgtDBObj){
+        if(err) throw err;
+        console.log('Found ', dgtDBObj.name);
+        var dgtContract = new web3.eth.Contract(dgtTokenABI.abi, dgtDBObj.address);
+        var tx = dgtContract.methods.addSubToken(web3.utils.asciiToHex(req.body.name), req.body.totalSupply);
+        tx.call(function(error, result){
+          if(error !== null) {
+            throw error;
+          } else if (!result) {
+            throw "error calling token function";
+          }
+          tx.send({
+            from: req.user.pubkey,
+            gas: 4000000, // 4m is ~ the limit
+            gasPrice: 10000000,
+          }, function(error, transactionHash){
+            console.log("transcationhash: " + transactionHash);
+          })
+          .on('error', function(error){
+            console.log("error: " + error);
+          })
+          .on('transactionHash', function(transactionHash){
+            console.log("on transcationhash: " + transactionHash);
+          })
+          .on('receipt', function(receipt){
+            console.log("receipt"); // contains the new contract address
+            console.log(receipt); // contains the new contract address
+            console.log("gasUsed");
+            console.log(receipt.gasUsed);
+            res.type('application/json');
+            res.status(200);
+            res.send({
+              "result" : result,
+              "receipt": receipt
+            });
+          })
+          .on('confirmation', function(confirmationNumber, receipt){
+            // fires each time tx is mined up to the 24th confirmationNumber
+            console.log("confirmationNumber: " + confirmationNumber);
+           })
+          .then(function(newContractInstance){
+
+          });
+        });
+      });
+    } catch (err) {
+      next(err);
+    }
+});
+
+app.get('/getdgtowner',  async (req, res, next) => {
+  try {
+    models.instance.contract.findOne({name: 'DGT'}, function(err, dgtDBObj){
+      if(err) throw err;
+      console.log('Found ', dgtDBObj.name);
+      var dgtContract = new web3.eth.Contract(dgtTokenABI.abi, dgtDBObj.address);
+      dgtContract.methods.owner().call(function(error, result){
+        if(error !== null) {
+          // TODO handle these errors
+        }
+        console.log(dgtDBObj.name);
+        res.type('application/json');
+        res.status(200);
+        res.send(result);
+      });
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+app.post('/createuserfromvin', async (req, res, next) => {
+  console.log(req.body.username);
+  console.log(req.body.vin);
+
+  let entropy = crypto.randomBytes(64).toString('hex');
+  //web3.utils.randomHex(size);
+  var acct = web3.eth.accounts.create([entropy]);
+//-- address - string: The account address.
+//-- privateKey - string: The accounts private key. This should never be shared or stored unencrypted in localstorage! Also make sure to null the memory after usage.
+//-- signTransaction(tx [, callback]) - Function: The function to sign transactions. See web3.eth.accounts.signTransaction() for more.
+//-- sign(data) - Function: The function to sign transactions. See web3.eth.accounts.sign() for more.
+//-- web3.eth.accounts.privateKeyToAccount(privateKey);
+//-- web3.eth.accounts.recoverTransaction(rawTransaction);
+//--    Recovers the Ethereum address which was used to sign the given RLP encoded transaction.
+//--   This is checking a digital signature?
+//--
+
+});
+app.post('/createuser', async (req, res, next) => {
+  // TODO: finish this function
+  console.log(req.body.username);
+  console.log(req.body.pubkey);
+  console.log(req.body.privkey);
+  console.log(req.body.vin);
+  try {
+    var newuser = new models.instance.user({
+        name: req.body.username,
+        privkey : req.body.privkey,
+        pubkey: req.body.pubkey,
+    });
+    var items = null;
+    newuser.save(function(err){
+      if(err) {
+        res.type('application/json');
+        res.status(500);
+        res.send(err);
+      } else {
+        res.type('application/json');
+        res.status(200);
+        res.send(newuser);
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/getusers', async (req, res, next) => {
+  try {
+    var query = {
+      $limit: 10
+    }
+    models.instance.user.find(query, {raw: true}, function(err, users){
+      if(err) throw err;
+      res.type('application/json');
+      res.status(200);
+      res.send(users);
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/createcontractold', passport.authenticate('jwt', { session: false }), async(req, res, next) => {
+  try {
+
+    let args = [web3.utils.asciiToHex(req.body.name), req.body.decimals, req.body.totalSupply];
+    var block = await web3.eth.getBlock("latest");
+    let gasEstimate = await web3.eth.estimateGas({data: rewardTokenABI.bytecode});
+    let rewardContract = new web3.eth.Contract(rewardTokenABI.abi);
+    let deployTx = rewardContract.deploy({data: rewardTokenABI.bytecode, arguments : args});
+
     deployTx.send({
       from: req.user.pubkey,
       gas: 4000000, // 4m is ~ the limit
@@ -254,99 +476,37 @@ app.post('/createcontract', passport.authenticate('jwt', { session: false }), as
       console.log("newContractInstance.options.address");
       console.log(newContractInstance.options.address);
     });
-
-    // res.type('application/json');
-    // res.status(200);
-    // res.send({name: newContract.name});
   } catch (err) {
     next(err);
   }
 });
 
-
-app.post('/createuserfromvin', async (req, res, next) => {
-  console.log(req.body.username);
-  console.log(req.body.vin);
-
-  let entropy = crypto.randomBytes(64).toString('hex');
-  //web3.utils.randomHex(size);
-  var acct = web3.eth.accounts.create([entropy]);
-//-- address - string: The account address.
-//-- privateKey - string: The accounts private key. This should never be shared or stored unencrypted in localstorage! Also make sure to null the memory after usage.
-//-- signTransaction(tx [, callback]) - Function: The function to sign transactions. See web3.eth.accounts.signTransaction() for more.
-//-- sign(data) - Function: The function to sign transactions. See web3.eth.accounts.sign() for more.
-//-- web3.eth.accounts.privateKeyToAccount(privateKey);
-//-- web3.eth.accounts.recoverTransaction(rawTransaction);
-//--    Recovers the Ethereum address which was used to sign the given RLP encoded transaction.
-//--   This is checking a digital signature?
-//--
-//--
-//--
-//--
-//--
-//--
-//--
-
-});
-app.post('/createuser', async (req, res, next) => {
-  // TODO: finish this function
-  console.log(req.body.username);
-  console.log(req.body.pubkey);
-  console.log(req.body.privkey);
-  console.log(req.body.vin);
+app.post('/getcontractdataold', passport.authenticate('jwt', { session: false }), async(req, res, next) => {
   try {
-    var newuser = new models.instance.user({
-        name: req.body.username,
-        privkey : req.body.privkey,
-        pubkey: req.body.pubkey,
-    });
-    var items = null;
-    newuser.save(function(err){
-      if(err) {
-        res.type('application/json');
-        res.status(500);
-        res.send(err);
-      } else {
-        res.type('application/json');
-        res.status(200);
-        console.log("newuser");
-        console.log(newuser);
-        res.send(newuser);
-      }
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get('/getUser', async (req, res, next) => {
-  try {
-    models.instance.user.findOne({name: 'John'}, function(err, user){
+    var contract = new web3.eth.Contract(rewardTokenABI.abi);
+    models.instance.user.findOne({name: req.user.name}, async(err, user) => {
       if(err) throw err;
-      //The variable `john` is a model instance containing the person named `John`
-      //`john` will be undefined if no person named `John` was found
-      console.log('Found ', user.name);
-
+      var retData = {};
+      contract.options.address = user.contracts[req.body.name].address;
+      retData.balance = await contract.methods.balanceOf(req.user.pubkey).call(function(error, result){
+        // TODO handle these errors
+        return result;
+      });
+      retData.owner = await contract.methods.owner().call(function(error, result){
+        if(error !== null) {
+          // TODO handle these errors
+        }
+        return result;
+      });
+      retData.ethBalance = await web3.eth.getBalance(req.user.pubkey, function(err, res) {
+        return res.toString(10);
+      });
       res.type('application/json');
       res.status(200);
-      res.send(user);
+      res.send(retData);
     });
-  } catch (err) {
-    next(err);
-  }
-});
 
-app.get('/getusers', async (req, res, next) => {
-  try {
-    var query = {
-      $limit: 10
-    }
-    models.instance.user.find(query, {raw: true}, function(err, users){
-      if(err) throw err;
-      res.type('application/json');
-      res.status(200);
-      res.send(users);
-    });
+
   } catch (err) {
     next(err);
   }

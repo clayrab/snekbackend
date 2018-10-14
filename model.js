@@ -55,32 +55,30 @@ let models = module.exports.models;
 var MyModel = models.loadSchema('user', {
   fields:{
     name      : "varchar",
-    contracts :  {
-      type: 'frozen',
-      typeDef: '<map<varchar,contract>>'
-    },
+    // contracts :  {
+    //   type: 'frozen',
+    //   typeDef: '<map<varchar,contract>>'
+    // },
     privkey   : "varchar",
     pubkey   : "varchar"
   },
   key:["name"]
 });
-// MyModel.syncDB(function(err, result) {
-//     if (err) throw err;
-// });
-// var MyModel = models.loadSchema('contract', {
-//   fields:{
-//     username      : "varchar",
-//     name          : "varchar",
-//     version_major : "int",
-//     version_minor : "varchar",
-//     address       : "varchar",
-//     abi           : "varchar"
-//   },
-//   key:["name"]
-// });
-// sync the schema definition with the cassandra database table
-// if the schema has not changed, the callback will fire immediately
-// otherwise express-cassandra will try to migrate the schema and fire the callback afterwards
+
+MyModel.syncDB(function(err, result) {
+    if (err) throw err;
+});
+var MyModel = models.loadSchema('contract', {
+  fields:{
+    name          : "varchar",
+    version_major : "int",
+    version_minor : "varchar",
+    address       : "varchar",
+    // abi           : "varchar"
+  },
+  key:["name"]
+});
+
 MyModel.syncDB(function(err, result) {
     if (err) throw err;
 });
