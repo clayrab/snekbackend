@@ -55,12 +55,8 @@ let models = module.exports.models;
 var MyModel = models.loadSchema('user', {
   fields:{
     name      : "varchar",
-    // contracts :  {
-    //   type: 'frozen',
-    //   typeDef: '<map<varchar,contract>>'
-    // },
     privkey   : "varchar",
-    pubkey   : "varchar"
+    pubkey   : "varchar",
   },
   key:["name"]
 });
