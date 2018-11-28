@@ -21,7 +21,7 @@ module.exports = {
     clientOptions: {
         contactPoints: ['127.0.0.1'],
         protocolOptions: { port: 9042 },
-        keyspace: 'll',
+        keyspace: 'sc',
         queryOptions: {consistency: ExpressCassandra.consistencies.one}
     },
     ormOptions: {
@@ -53,28 +53,29 @@ module.exports = {
 };
 let models = module.exports.models;
 var MyModel = models.loadSchema('user', {
-  fields:{
+  fields: {
     name      : "varchar",
-    privkey   : "varchar",
-    pubkey   : "varchar",
+    pwcrypt   : "varchar",
+    keycrypt  : "varchar",
   },
-  key:["name"]
+  key:["name"],
 });
 
 MyModel.syncDB(function(err, result) {
     if (err) throw err;
 });
-var MyModel = models.loadSchema('contract', {
-  fields:{
-    name          : "varchar",
-    version_major : "int",
-    version_minor : "varchar",
-    address       : "varchar",
-    // abi           : "varchar"
-  },
-  key:["name"]
-});
 
-MyModel.syncDB(function(err, result) {
-    if (err) throw err;
-});
+// var MyModel = models.loadSchema('contract', {
+//   fields:{
+//     name          : "varchar",
+//     version_major : "int",
+//     version_minor : "varchar",
+//     address       : "varchar",
+//     // abi           : "varchar"
+//   },
+//   key:["name"]
+// });
+//
+// MyModel.syncDB(function(err, result) {
+//     if (err) throw err;
+// });
