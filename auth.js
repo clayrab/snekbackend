@@ -1,76 +1,78 @@
-var LocalStrategy = require('passport-local').Strategy;
-var JwtStrategy = require('passport-jwt').Strategy;
-var ExtractJwt = require('passport-jwt').ExtractJwt;
-var passport = require('passport');
-var models = require('./model.js').models;
-var bcrypt = require('bcrypt');
-var jwt = require('jsonwebtoken');
-var web3 = require('web3');
-var web3 = new web3(web3.givenProvider || "ws://127.0.0.1:9545");
-var config = require("./config.js");
-var encryptor = require("./encryptor.js");
-var keyCache = require("./keyCache.js");
+const LocalStrategy = require('passport-local').Strategy;
+const JwtStrategy = require('passport-jwt').Strategy;
+const ExtractJwt = require('passport-jwt').ExtractJwt;
+const passport = require('passport');
+const models = require('./model.js').models;
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const config = require("./config.js");
+const encryptor = require("./encryptor.js");
+const keyCache = require("./keyCache.js");
+const web3 = require("./web3Instance.js").web3;
+const utils = require("./utils.js");
 
 exports.saltRounds = 10;
-exports.createLocalUser = async (req, res, next) => {
+exports.createLocalUserRoute = async (req, res, next) => {
   try {
-    models.instance.user.findOne({name: req.body.username}, function (err, user) {
-      if(user) {
-        res.type('application/json');
-        res.status(500);
-        res.send("user already exists");
-      } else {
-        bcrypt.hash(req.body.pw, exports.saltRounds, function(err, storableHash) {
-          var entropy = web3.utils.keccak256(req.body.username+req.body.pw+config.accountSalt);
-          var acct = web3.eth.accounts.create(entropy);
-          var keyCrypt = encryptor.encrypt(acct.privateKey, req.body.username+req.body.pw+config.aesSalt);
-
-          // decrypt using password, reencrypt using runtime password, and store in runtime map
-
-          var newuser = new models.instance.user({
-              name: req.body.username,
-              pwcrypt: storableHash,
-              keycrypt: keyCrypt
-          });
-          var items = null;
-          newuser.save(function(err){
-            if(err) {
-              res.type('application/json');
-              res.status(500);
-              res.send(err);
-            } else {
-              res.type('application/json');
-              res.status(200);
-              res.send(newuser);
-            }
-          });
+    utils.mustNotFind(models.instance.user,{name: req.body.username}, function () {
+      bcrypt.hash(req.body.pw, exports.saltRounds, function(err, storableHash) {
+        let entropy = web3.utils.keccak256(req.body.username+req.body.pw+config.accountSalt);
+        let acct = web3.eth.accounts.create(entropy);
+        let storableKeyCrypt = encryptor.encrypt(acct.privateKey, req.body.username+req.body.pw+config.aesSalt);
+        let newuser = new models.instance.user({
+            name: req.body.username,
+            pubkey: acct.address,
+            pwcrypt: storableHash,
+            keycrypt: storableKeyCrypt,
+            unredeemed: 0,
+            mineMax: 1000,
+            haul: 0,
         });
-      }
+        utils.save(newuser, function(){
+          utils.ok200(newuser, res);
+        });
+      });
     });
   } catch (err) {
     next(err);
   }
 }
+
+exports.createLocalUserFromKeyRoute = async (req, res, next) => {
+  try {
+    utils.mustNotFind(models.instance.user,{name: req.body.username}, function () {
+      let storableKeyCrypt = encryptor.encrypt(req.body.key, req.body.username+req.body.pw+config.aesSalt);
+      // decrypt using password, reencrypt using runtime password, and store in runtime map
+      let newuser = new models.instance.user({
+          name: req.body.username,
+          pubkey: acct.address,
+          pwcrypt: storableHash,
+          keycrypt: storableKeyCrypt,
+          unredeemed: 0,
+          mineMax: 1000,
+          haul: 0,
+      });
+      utils.save(newuser, () => {
+        utils.ok200(newuser, res);
+      });
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 exports.loginRoute = function(req, res, next) {
   try {
     passport.authenticate('local', function(err, user, info) {
       if(err){
-        res.type('application/json');
-        res.status(200);
-        res.send(err);
+        throw err;
       } else if(info){
-        res.type('application/json');
-        res.status(200);
-        res.send(info);
+        throw "error. info: " + info;
       } else if(user){
-        var token = jwt.sign(user, jwtOptions.secretOrKey, {expiresIn: 86400 * 30});
-        jwt.verify(token, jwtOptions.secretOrKey, function(err, data){
-          console.log('err, data');
-          console.log(err, data);
+        let token = jwt.sign(user, config.jwtSalt, {expiresIn: config.jwtExpirationTime});
+        jwt.verify(token, config.jwtSalt, function(err, data){
+          utils.ok200({token: token}, res);
         });
-        res.type('application/json');
-        res.status(200);
-        res.send({token: token});
       }
     })(req, res, next);
   } catch (err) {
@@ -78,55 +80,41 @@ exports.loginRoute = function(req, res, next) {
   }
 }
 
-exports.secureNoopRoute = function(req, res) {
-  //TODO add in try/catch
-  // JWT AUTH PASSED. Stored username has been through login route.
-  //
-  res.send(req.user);
-}
-
-exports.localStrategy = new LocalStrategy(
+exports.loginStrategy = new LocalStrategy(
   {
     usernameField: 'user',
     passwordField: 'pw',
   },
   function(username, password, done) {
-    models.instance.user.findOne({ name: username }, function (err, user) {
-      if (err) {
-        return done(err);
-      }
-      // Also check that their encrypted key is in runtime store
-      bcrypt.compare(password, user.pwcrypt, function(err, res) {
-        // res == true
-        if(res) {
-          return done(null, {name: user.name});
-          //return done(null, false, { message: 'Incorrect password.' });
-        } else {
-          return done(null, false, { message: 'Incorrect password.' });
-        }
+    try {
+      utils.mustFind(models.instance.user, {name: username }, function (user) {
+        bcrypt.compare(password, user.pwcrypt, function(err, res) {
+          if(!res) {
+            return done(null, false, {message: 'Incorrect password.'});
+          } else {
+            encryptor.randomSecret((randomSecret) => {
+              let privKey = encryptor.decrypt(user.keycrypt, username+password+config.aesSalt);
+              let runtimeKeyCrypt = encryptor.encrypt(privKey, username+randomSecret+config.aesSalt);
+              keyCache.keyCacheSet(username, runtimeKeyCrypt, async() => {
+                return done(null, {name: user.name, randomSecret: randomSecret});
+              });
+            });
+          }
+        });
       });
-    });
+    } catch(err) {
+      return done(err);
+    }
   }
 );
 
-var jwtOptions = {
-  secretOrKey: config.jwtSalt,
-  jwtFromRequest: ExtractJwt.fromAuthHeaderWithScheme('JWT'),
-};
-//jwtOptions.secretOrKey = ;
-//jwtOptions.;
-exports.jwtStrategy = new JwtStrategy(jwtOptions, function(jwt_payload, done) {
-  models.instance.user.findOne({
-    name: jwt_payload.name
-  }, function(err, user) {
-    if (err) {
-      return done(err, false);
-    }
-    if (user) {
-      //done(null, {name: user.name, keycrypt: user.keycrypt});
-      done(null, {name: user.name, keycrypt: user.keycrypt});
-    } else {
-      done(null, false);
-    }
-  });
-});
+exports.jwtStrategy = new JwtStrategy({
+    secretOrKey: config.jwtSalt,
+    jwtFromRequest: ExtractJwt.fromAuthHeaderWithScheme('JWT'),
+  },
+  function(jwt_payload, done) {
+    utils.mustFind(models.instance.user, {name: jwt_payload.name}, function(user){
+      done(null, {name: user.name, randomSecret: jwt_payload.randomSecret});
+    });
+  }
+);

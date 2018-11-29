@@ -55,8 +55,12 @@ let models = module.exports.models;
 var MyModel = models.loadSchema('user', {
   fields: {
     name      : "varchar",
+    pubkey    : "varchar",
     pwcrypt   : "varchar",
     keycrypt  : "varchar",
+    unredeemed: "int",
+    mineMax   : "int",
+    haul      : "int",
   },
   key:["name"],
 });
@@ -65,17 +69,16 @@ MyModel.syncDB(function(err, result) {
     if (err) throw err;
 });
 
-// var MyModel = models.loadSchema('contract', {
-//   fields:{
-//     name          : "varchar",
-//     version_major : "int",
-//     version_minor : "varchar",
-//     address       : "varchar",
-//     // abi           : "varchar"
-//   },
-//   key:["name"]
-// });
-//
-// MyModel.syncDB(function(err, result) {
-//     if (err) throw err;
-// });
+var MyModel = models.loadSchema('events', {
+  fields:{
+    eventId   : "int",
+    eventType : "int",
+    time      : "timestamp",
+    date      : "varchar",
+  },
+  key:["eventId"]
+});
+
+MyModel.syncDB(function(err, result) {
+    if (err) throw err;
+});

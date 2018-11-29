@@ -1,18 +1,18 @@
-var express = require('express');
-var fetch = require("node-fetch");
-var cookieParser = require('cookie-parser');
-var bodyParser = require('body-parser'); //required for passport local strategy
-var passport = require('passport');
-var crypto = require('crypto');
-var models = require('./model.js').models;
-var snekChainABI = require('./eth/abi/SnekCoinToken.json');
-var web3 = require('web3');
-var web3 = new web3(web3.givenProvider || "ws://127.0.0.1:9545");
-var app = express();
+const express = require('express');
+const fetch = require("node-fetch");
+const cookieParser = require('cookie-parser');
+const bodyParser = require('body-parser'); //required for passport local strategy
+const passport = require('passport');
+const crypto = require('crypto');
+const models = require('./model.js').models;
+const snekChainABI = require('./eth/abi/SnekCoinToken.json');
 
-var config = require("./config.js");
-var auth = require("./auth.js");
 
+const config = require("./config.js");
+const auth = require("./auth.js");
+const snekRoutes = require("./snekRoutes.js");
+
+let app = express();
 app.disable('x-powered-by')
 // https://expressjs.com/en/advanced/best-practice-security.html
 
@@ -21,18 +21,23 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-passport.use(auth.localStrategy);
+passport.use(auth.loginStrategy);
 passport.use('jwt', auth.jwtStrategy);
 app.post('/login',
   auth.loginRoute
 );
-app.get('/secure',
-  passport.authenticate('jwt', { session: false }),
-  auth.secureNoopRoute
-);
 
 app.post('/createLocalUser',
-  auth.createLocalUser
+  auth.createLocalUserRoute
+);
+
+app.post('/createLocalUserFromKey',
+  auth.createLocalUserFromKeyRoute
+);
+
+app.post('/rewardPreTokens',
+  passport.authenticate('jwt', { session: false }),
+  snekRoutes.rewardPreTokensRoute
 );
 
 app.post('/sendtokens',
@@ -42,40 +47,9 @@ app.post('/sendtokens',
     var contract = new web3.eth.Contract(rewardTokenABI.abi);
     var receipt = await contract.methods.transfer(req.body.to, req.body.amount).send({from: req.user.pubkey});
     retData.txHash = receipt.transactionHash;
-    res.type('application/json');
-    res.status(200);
-    res.send(retData);
+    utils.ok200(retData ,res);
   }
 );
-
-app.post('/createuser', async (req, res, next) => {
-  // TODO: finish this function
-  console.log(req.body.username);
-  console.log(req.body.pubkey);
-  console.log(req.body.privkey);
-  console.log(req.body.vin);
-  try {
-    var newuser = new models.instance.user({
-        name: req.body.username,
-        privkey : req.body.privkey,
-        pubkey: req.body.pubkey,
-    });
-    var items = null;
-    newuser.save(function(err){
-      if(err) {
-        res.type('application/json');
-        res.status(500);
-        res.send(err);
-      } else {
-        res.type('application/json');
-        res.status(200);
-        res.send(newuser);
-      }
-    });
-  } catch (err) {
-    next(err);
-  }
-});
 
 app.get('/getusers', async (req, res, next) => {
   try {
@@ -84,9 +58,7 @@ app.get('/getusers', async (req, res, next) => {
     }
     models.instance.user.find(query, {raw: true}, function(err, users){
       if(err) throw err;
-      res.type('application/json');
-      res.status(200);
-      res.send(users);
+      utils.ok200(users, res);
     });
   } catch (err) {
     next(err);
@@ -95,7 +67,7 @@ app.get('/getusers', async (req, res, next) => {
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
-  var err = new Error('Not Found');
+  var err = new Error('404 Not Found');
   err.status = 404;
   next(err);
 });
@@ -104,7 +76,7 @@ app.use(function(req, res, next) {
 app.use(function(err, req, res, next) {
   res.status(err.status || 500);
   res.type('application/json');
-  res.send({error: err.message});
+  res.send({error: err});
 });
 
 app.listen(3001, () => console.log('Listening on port 3001!'))

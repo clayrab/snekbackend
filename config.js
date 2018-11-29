@@ -7,13 +7,16 @@ exports.env = {
   development: false
 };
 exports.env[currentEnv] = true;
+exports.jwtExpirationTime = 172800 //2*24*60*60;
 var accountSalt = "NonProdSalt";
 var aesSalt = "NonProdAesSalt";
 var jwtSalt = "NonProdJwtSalt";
+var ownerSalt = "NonProdOwnerSalt";
 if(currentEnv == "production"){
   accountSalt = process.env.SNAKE_BCRYPT_SALT;
   aesSalt = process.env.SNAKE_AES_SALT;
   jwtSalt = process.env.SNAKE_JWT_SALT;
+  ownerSalt = process.env.SNAKE_OWN_SALT;
 }
 if(currentEnv == "production" && bcryptSalt.length < 20) { // make sure a salt was configured in sh env
    throw new Error("INVALID SALT PROVIDED");
@@ -24,9 +27,13 @@ if(currentEnv == "production" && aesSalt.length < 20) { // make sure a salt was 
 if(currentEnv == "production" && jwtSalt.length < 20) { // make sure a salt was configured in sh env
    throw new Error("INVALID JWT ENTROPY PROVIDED");
 }
+if(currentEnv == "production" && ownerSalt.length < 20) { // make sure a salt was configured in sh env
+   throw new Error("INVALID JWT ENTROPY PROVIDED");
+}
 exports.bcryptSalt = accountSalt;
 exports.aesSalt = aesSalt;
 exports.jwtSalt = jwtSalt;
+exports.ownerSalt = ownerSalt;
 // exports.log = {
 //   path: __dirname + "/var/log/app_#{currentEnv}.log"
 // };
