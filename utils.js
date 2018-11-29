@@ -1,3 +1,5 @@
+const bcrypt = require('bcrypt');
+
 exports.ok200 = function(value, res) {
   res.type('application/json');
   res.status(200);
@@ -8,40 +10,75 @@ exports.error500 = function(error, res) {
   res.status(500);
   res.send(error);
 }
-exports.save = function(model, done) {
-  model.save(function(err){
-    if(err) {
-      throw err;
-    } else {
-      done();
-    }
-  });
+exports.save = async(model, done) => {
+  return await new Promise((resolve, reject) => {
+    model.save(function(err){
+      if(err) {
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
+  }).catch(err => {throw err});
 }
-exports.mustFind = function(model, keyMap, done) {
-  model.findOne(keyMap, function (err, retObj) {
-    if(err){
-      throw err;
-    }
-    if(!retObj){
-      throw "Object not found in model";
-    }
-    done(retObj);
-  });
-}
-
-exports.mustNotFind = function(model, keyMap, done) {
-  try{
+exports.mustFind = async(model, keyMap) => {
+  return await new Promise((resolve, reject) => {
     model.findOne(keyMap, function (err, retObj) {
       if(err){
-        throw err;
+        reject(err);
       }
-      if(retObj){
-        throw "Object already exists!";
+      if(!retObj){
+        reject("Object not found in model: " + retObj);
       }
-      done();
+      resolve(retObj);
     });
-  } catch(err) {
-    throw err;
-  }
-
+  }).catch(err => {throw err});
 }
+
+exports.mustNotFind = async(model, keyMap, done) => {
+  return await new Promise((resolve, reject) => {
+    model.findOne(keyMap, function (err, retObj) {
+      if(err){
+        reject(err);
+      } else if(retObj){
+        reject("Object already exists!");
+      } else {
+        resolve();
+      }
+    });
+  }).catch(err => {throw err});
+}
+exports.bcryptHash = async(pw, saltRounds) => {
+  return await new Promise((resolve, reject) => {
+    bcrypt.hash(pw, saltRounds, async(err, storableHash) => {
+      if(err){
+        reject(err);
+      } else {
+        resolve(storableHash);
+      }
+    });
+  }).catch(err => {throw err});
+}
+exports.bcryptCompare = async(pw, data) => {
+  return await new Promise((resolve, reject) => {
+    bcrypt.compare(pw, data, function(err, res) {
+      if(err){
+        reject(err);
+      } else {
+        resolve(res);
+      }
+    });
+  }).catch(err => {throw err});
+}
+
+
+
+// Creating a new Promise like the other answers suggest works fine in this case, but as a general rule, util.promisify can stop you from writing the same thing many times.
+//
+// So you can do something like this instead: (node.js v8.0.0+)
+//
+// const util = require('util');
+// async function start() {
+//     let server = Http.createServer(app);
+//     await util.promisify(server.listen.bind(server))(port);
+// }

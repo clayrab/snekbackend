@@ -1,8 +1,8 @@
 
 var crypto = require('crypto');
 exports.encrypt = function encrypt(text, password){
-  var cipher = crypto.createCipher('aes-256-ctr', password)
-  var crypted = cipher.update(text,'utf8','hex')
+  var cipher = crypto.createCipher('aes-256-ctr', password);
+  var crypted = cipher.update(text,'utf8','hex');
   crypted += cipher.final('hex');
   return crypted;
 }
@@ -12,9 +12,14 @@ exports.decrypt = function decrypt(text, password){
   dec += decipher.final('utf8');
   return dec;
 }
-exports.randomSecret = async(done) => {
-  crypto.randomBytes(256, (err, buf) => {
-    if (err) throw err;
-    done(buf.toString('hex'));
-  });
+exports.randomSecret = async() => {
+  return await new Promise((resolve, reject) => {
+    crypto.randomBytes(256, (err, buf) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(buf.toString('hex'))
+      }
+    });
+  }).catch(err => {throw err});
 }

@@ -16,16 +16,21 @@ const keyCache = new NodeCache({
   errorOnMissing: false
 });
 exports.keyCache = keyCache;
+exports.keyCacheSet = async(model) => {
+  return await new Promise((resolve, reject) => {
+    keyCache.set(key, value, async( err, success ) => {
+      if(err){
+        reject(err);
+      } else if(!success){
+        reject("Error storing key.");
+      } else {
+        resolve(value);
+      }
+    });
+  }).catch(err => {throw err});
+}
 exports.keyCacheSet = function(key, value, done) {
-  keyCache.set(key, value, async( err, success ) => {
-    if(err){
-      throw "Error: " + err;
-    } else if(!success){
-      throw "Error storing key.";
-    } else {
-      done(value);
-    }
-  });
+
 }
 exports.keyCacheGet = function(key, done) {
   keyCache.get(key, function(err, value){

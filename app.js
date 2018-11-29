@@ -5,7 +5,6 @@ const bodyParser = require('body-parser'); //required for passport local strateg
 const passport = require('passport');
 const crypto = require('crypto');
 const models = require('./model.js').models;
-const snekChainABI = require('./eth/abi/SnekCoinToken.json');
 
 
 const config = require("./config.js");
@@ -76,7 +75,11 @@ app.use(function(req, res, next) {
 app.use(function(err, req, res, next) {
   res.status(err.status || 500);
   res.type('application/json');
-  res.send({error: err});
+  if(err.message){
+    res.send({error: err.message});
+  } else {
+    res.send(err);
+  }
 });
 
 app.listen(3001, () => console.log('Listening on port 3001!'))

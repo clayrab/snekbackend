@@ -55,6 +55,7 @@ let models = module.exports.models;
 var MyModel = models.loadSchema('user', {
   fields: {
     name      : "varchar",
+    roles     : { type: "set", typeDef: "<int>"},
     pubkey    : "varchar",
     pwcrypt   : "varchar",
     keycrypt  : "varchar",
@@ -69,16 +70,42 @@ MyModel.syncDB(function(err, result) {
     if (err) throw err;
 });
 
-var MyModel = models.loadSchema('events', {
-  fields:{
-    eventId   : "int",
-    eventType : "int",
-    time      : "timestamp",
-    date      : "varchar",
-  },
-  key:["eventId"]
-});
-
-MyModel.syncDB(function(err, result) {
-    if (err) throw err;
-});
+// Event Types:
+// 1: rewardPreTokens
+// 2: blacklist user
+// 3: new user
+// 4: mine
+// 5: free mine
+// 6: powerup bought
+// 7: powerup used
+// var MyModel = models.loadSchema('event', {
+//   fields: {
+//     // basic event fields
+//     eventId       : "int",
+//     date          : "varchar",
+//     eventType     : "int",
+//     time          : "timestamp",
+//     // 1: rewardPreTokens
+//     rpt_amount    : "int",
+//     // 2: blacklist user
+//     bl_reason     : "int",
+//     // 3: new user
+//     // 4: mine
+//     mn_amount     : "int",
+//     mn_eth_amount : "int",
+//     // 5: free mine
+//     fmn_amount    : "int",
+//     fmn_snk_amount: "int",
+//     // 6: powerup purchased
+//     pup_type      : "int",
+//     pup_amount    : "int",
+//     pup_snk_amount: "int",
+//     // 7: powerup used
+//     puu_type      : "int",
+//   },
+//   key: ["eventId", "date"],
+// });
+//
+// MyModel.syncDB(function(err, result) {
+//     if (err) throw err;
+// });
