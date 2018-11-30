@@ -1,0 +1,579 @@
+{
+  "contractName": "Dispatcher",
+  "abi": [
+    {
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "fallback"
+    }
+  ],
+  "bytecode": "0x608060405234801561001057600080fd5b5061011e806100206000396000f3006080604052348015600f57600080fd5b5060008073111122223333444455556666777788889999000091508173ffffffffffffffffffffffffffffffffffffffff1663928012306040518163ffffffff167c0100000000000000000000000000000000000000000000000000000000028152600401602060405180830381600087803b158015608d57600080fd5b505af115801560a0573d6000803e3d6000fd5b505050506040513d602081101560b557600080fd5b810190808051906020019092919050505090503660008037600080366000846127105a03f43d806000803e816000811460ed57816000f35b816000fd00a165627a7a7230582047cc649065613e3a41969f70415eaf593ac05e683421cc67c1e736dad350d8bf0029",
+  "deployedBytecode": "0x6080604052348015600f57600080fd5b5060008073111122223333444455556666777788889999000091508173ffffffffffffffffffffffffffffffffffffffff1663928012306040518163ffffffff167c0100000000000000000000000000000000000000000000000000000000028152600401602060405180830381600087803b158015608d57600080fd5b505af115801560a0573d6000803e3d6000fd5b505050506040513d602081101560b557600080fd5b810190808051906020019092919050505090503660008037600080366000846127105a03f43d806000803e816000811460ed57816000f35b816000fd00a165627a7a7230582047cc649065613e3a41969f70415eaf593ac05e683421cc67c1e736dad350d8bf0029",
+  "sourceMap": "61:535:0:-;;;;8:9:-1;5:2;;;30:1;27;20:12;5:2;61:535:0;;;;;;;",
+  "deployedSourceMap": "61:535:0:-;;;;8:9:-1;5:2;;;30:1;27;20:12;5:2;61:535:0;109:35;214:14;165:42;109:99;;231:17;:21;;;:23;;;;;;;;;;;;;;;;;;;;;;;8:9:-1;5:2;;;30:1;27;20:12;5:2;231:23:0;;;;8:9:-1;5:2;;;45:16;42:1;39;24:38;77:16;74:1;67:27;5:2;231:23:0;;;;;;;13:2:-1;8:3;5:11;2:2;;;29:1;26;19:12;2:2;231:23:0;;;;;;;;;;;;;;;;214:40;;301:12;296:3;291;278:36;396:1;393;379:12;374:3;366:6;358:5;353:3;349:15;336:62;418:14;460:5;457:1;454;439:27;480:7;499:1;494:41;;;;570:5;567:1;560:16;494:41;521:5;518:1;511:16",
+  "source": "pragma solidity ^0.4.10;\n\nimport \"./DispatcherStorage.sol\";\n\ncontract Dispatcher {\n  function() public {\n    DispatcherStorage dispatcherStorage = DispatcherStorage(0x1111222233334444555566667777888899990000);\n    address target = dispatcherStorage.lib();\n\n    assembly {\n      calldatacopy(0x0, 0x0, calldatasize)\n      let success := delegatecall(sub(gas, 10000), target, 0x0, calldatasize, 0, 0)\n      let retSz := returndatasize\n      returndatacopy(0, 0, retSz)\n      switch success\n      case 0 {\n        revert(0, retSz)\n      }\n      default {\n        return(0, retSz)\n      }\n    }\n  }\n}\n",
+  "sourcePath": "/Users/clay/projects/solidity-proxy/contracts/Dispatcher.sol",
+  "ast": {
+    "absolutePath": "/Users/clay/projects/solidity-proxy/contracts/Dispatcher.sol",
+    "exportedSymbols": {
+      "Dispatcher": [
+        20
+      ]
+    },
+    "id": 21,
+    "nodeType": "SourceUnit",
+    "nodes": [
+      {
+        "id": 1,
+        "literals": [
+          "solidity",
+          "^",
+          "0.4",
+          ".10"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "0:24:0"
+      },
+      {
+        "absolutePath": "/Users/clay/projects/solidity-proxy/contracts/DispatcherStorage.sol",
+        "file": "./DispatcherStorage.sol",
+        "id": 2,
+        "nodeType": "ImportDirective",
+        "scope": 21,
+        "sourceUnit": 51,
+        "src": "26:33:0",
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": null,
+        "fullyImplemented": true,
+        "id": 20,
+        "linearizedBaseContracts": [
+          20
+        ],
+        "name": "Dispatcher",
+        "nodeType": "ContractDefinition",
+        "nodes": [
+          {
+            "body": {
+              "id": 18,
+              "nodeType": "Block",
+              "src": "103:491:0",
+              "statements": [
+                {
+                  "assignments": [
+                    6
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 6,
+                      "name": "dispatcherStorage",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 19,
+                      "src": "109:35:0",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_DispatcherStorage_$50",
+                        "typeString": "contract DispatcherStorage"
+                      },
+                      "typeName": {
+                        "contractScope": null,
+                        "id": 5,
+                        "name": "DispatcherStorage",
+                        "nodeType": "UserDefinedTypeName",
+                        "referencedDeclaration": 50,
+                        "src": "109:17:0",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_DispatcherStorage_$50",
+                          "typeString": "contract DispatcherStorage"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 10,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "307831313131323232323333333334343434353535353636363637373737383838383939393930303030",
+                        "id": 8,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "number",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "165:42:0",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        "value": "0x1111222233334444555566667777888899990000"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 7,
+                      "name": "DispatcherStorage",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50,
+                      "src": "147:17:0",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_contract$_DispatcherStorage_$50_$",
+                        "typeString": "type(contract DispatcherStorage)"
+                      }
+                    },
+                    "id": 9,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": true,
+                    "kind": "typeConversion",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "147:61:0",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_contract$_DispatcherStorage_$50",
+                      "typeString": "contract DispatcherStorage"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "109:99:0"
+                },
+                {
+                  "assignments": [
+                    12
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 12,
+                      "name": "target",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 19,
+                      "src": "214:14:0",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      },
+                      "typeName": {
+                        "id": 11,
+                        "name": "address",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "214:7:0",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 16,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [],
+                    "expression": {
+                      "argumentTypes": [],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 13,
+                        "name": "dispatcherStorage",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 6,
+                        "src": "231:17:0",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_DispatcherStorage_$50",
+                          "typeString": "contract DispatcherStorage"
+                        }
+                      },
+                      "id": 14,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "lib",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 27,
+                      "src": "231:21:0",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_view$__$returns$_t_address_$",
+                        "typeString": "function () view external returns (address)"
+                      }
+                    },
+                    "id": 15,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "231:23:0",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "214:40:0"
+                },
+                {
+                  "externalReferences": [
+                    {
+                      "target": {
+                        "declaration": 12,
+                        "isOffset": false,
+                        "isSlot": false,
+                        "src": "366:6:0",
+                        "valueSize": 1
+                      }
+                    }
+                  ],
+                  "id": 17,
+                  "nodeType": "InlineAssembly",
+                  "operations": "{\n    calldatacopy(0x0, 0x0, calldatasize())\n    let success := delegatecall(sub(gas(), 10000), target, 0x0, calldatasize(), 0, 0)\n    let retSz := returndatasize()\n    returndatacopy(0, 0, retSz)\n    switch success\n    case 0 {\n        revert(0, retSz)\n    }\n    default {\n        return(0, retSz)\n    }\n}",
+                  "src": "261:333:0"
+                }
+              ]
+            },
+            "documentation": null,
+            "id": 19,
+            "implemented": true,
+            "isConstructor": false,
+            "isDeclaredConst": false,
+            "modifiers": [],
+            "name": "",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 3,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "93:2:0"
+            },
+            "payable": false,
+            "returnParameters": {
+              "id": 4,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "103:0:0"
+            },
+            "scope": 20,
+            "src": "85:509:0",
+            "stateMutability": "nonpayable",
+            "superFunction": null,
+            "visibility": "public"
+          }
+        ],
+        "scope": 21,
+        "src": "61:535:0"
+      }
+    ],
+    "src": "0:597:0"
+  },
+  "legacyAST": {
+    "absolutePath": "/Users/clay/projects/solidity-proxy/contracts/Dispatcher.sol",
+    "exportedSymbols": {
+      "Dispatcher": [
+        20
+      ]
+    },
+    "id": 21,
+    "nodeType": "SourceUnit",
+    "nodes": [
+      {
+        "id": 1,
+        "literals": [
+          "solidity",
+          "^",
+          "0.4",
+          ".10"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "0:24:0"
+      },
+      {
+        "absolutePath": "/Users/clay/projects/solidity-proxy/contracts/DispatcherStorage.sol",
+        "file": "./DispatcherStorage.sol",
+        "id": 2,
+        "nodeType": "ImportDirective",
+        "scope": 21,
+        "sourceUnit": 51,
+        "src": "26:33:0",
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": null,
+        "fullyImplemented": true,
+        "id": 20,
+        "linearizedBaseContracts": [
+          20
+        ],
+        "name": "Dispatcher",
+        "nodeType": "ContractDefinition",
+        "nodes": [
+          {
+            "body": {
+              "id": 18,
+              "nodeType": "Block",
+              "src": "103:491:0",
+              "statements": [
+                {
+                  "assignments": [
+                    6
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 6,
+                      "name": "dispatcherStorage",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 19,
+                      "src": "109:35:0",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_DispatcherStorage_$50",
+                        "typeString": "contract DispatcherStorage"
+                      },
+                      "typeName": {
+                        "contractScope": null,
+                        "id": 5,
+                        "name": "DispatcherStorage",
+                        "nodeType": "UserDefinedTypeName",
+                        "referencedDeclaration": 50,
+                        "src": "109:17:0",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_DispatcherStorage_$50",
+                          "typeString": "contract DispatcherStorage"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 10,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "307831313131323232323333333334343434353535353636363637373737383838383939393930303030",
+                        "id": 8,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "number",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "165:42:0",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        "value": "0x1111222233334444555566667777888899990000"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 7,
+                      "name": "DispatcherStorage",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50,
+                      "src": "147:17:0",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_contract$_DispatcherStorage_$50_$",
+                        "typeString": "type(contract DispatcherStorage)"
+                      }
+                    },
+                    "id": 9,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": true,
+                    "kind": "typeConversion",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "147:61:0",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_contract$_DispatcherStorage_$50",
+                      "typeString": "contract DispatcherStorage"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "109:99:0"
+                },
+                {
+                  "assignments": [
+                    12
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 12,
+                      "name": "target",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 19,
+                      "src": "214:14:0",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      },
+                      "typeName": {
+                        "id": 11,
+                        "name": "address",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "214:7:0",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 16,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [],
+                    "expression": {
+                      "argumentTypes": [],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 13,
+                        "name": "dispatcherStorage",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 6,
+                        "src": "231:17:0",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_DispatcherStorage_$50",
+                          "typeString": "contract DispatcherStorage"
+                        }
+                      },
+                      "id": 14,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "lib",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 27,
+                      "src": "231:21:0",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_view$__$returns$_t_address_$",
+                        "typeString": "function () view external returns (address)"
+                      }
+                    },
+                    "id": 15,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "231:23:0",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "214:40:0"
+                },
+                {
+                  "externalReferences": [
+                    {
+                      "target": {
+                        "declaration": 12,
+                        "isOffset": false,
+                        "isSlot": false,
+                        "src": "366:6:0",
+                        "valueSize": 1
+                      }
+                    }
+                  ],
+                  "id": 17,
+                  "nodeType": "InlineAssembly",
+                  "operations": "{\n    calldatacopy(0x0, 0x0, calldatasize())\n    let success := delegatecall(sub(gas(), 10000), target, 0x0, calldatasize(), 0, 0)\n    let retSz := returndatasize()\n    returndatacopy(0, 0, retSz)\n    switch success\n    case 0 {\n        revert(0, retSz)\n    }\n    default {\n        return(0, retSz)\n    }\n}",
+                  "src": "261:333:0"
+                }
+              ]
+            },
+            "documentation": null,
+            "id": 19,
+            "implemented": true,
+            "isConstructor": false,
+            "isDeclaredConst": false,
+            "modifiers": [],
+            "name": "",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 3,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "93:2:0"
+            },
+            "payable": false,
+            "returnParameters": {
+              "id": 4,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "103:0:0"
+            },
+            "scope": 20,
+            "src": "85:509:0",
+            "stateMutability": "nonpayable",
+            "superFunction": null,
+            "visibility": "public"
+          }
+        ],
+        "scope": 21,
+        "src": "61:535:0"
+      }
+    ],
+    "src": "0:597:0"
+  },
+  "compiler": {
+    "name": "solc",
+    "version": "0.4.24+commit.e67f0147.Emscripten.clang"
+  },
+  "networks": {},
+  "schemaVersion": "2.0.1",
+  "updatedAt": "2018-10-30T08:59:05.538Z"
+}

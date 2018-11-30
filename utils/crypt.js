@@ -23,3 +23,25 @@ exports.randomSecret = async() => {
     });
   }).catch(err => {throw err});
 }
+exports.bcryptHash = async(pw, saltRounds) => {
+  return await new Promise((resolve, reject) => {
+    bcrypt.hash(pw, saltRounds, async(err, storableHash) => {
+      if(err){
+        reject(err);
+      } else {
+        resolve(storableHash);
+      }
+    });
+  }).catch(err => {throw err});
+}
+exports.bcryptCompare = async(pw, data) => {
+  return await new Promise((resolve, reject) => {
+    bcrypt.compare(pw, data, function(err, res) {
+      if(err){
+        reject(err);
+      } else {
+        resolve(res);
+      }
+    });
+  }).catch(err => {throw err});
+}

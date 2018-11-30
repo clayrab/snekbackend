@@ -55,7 +55,7 @@ let models = module.exports.models;
 var MyModel = models.loadSchema('user', {
   fields: {
     name      : "varchar",
-    roles     : { type: "set", typeDef: "<int>"},
+    //roles     : { type: "set", typeDef: "<int>"},
     pubkey    : "varchar",
     pwcrypt   : "varchar",
     keycrypt  : "varchar",
@@ -64,6 +64,21 @@ var MyModel = models.loadSchema('user', {
     haul      : "int",
   },
   key:["name"],
+});
+
+MyModel.syncDB(function(err, result) {
+    if (err) throw err;
+});
+
+var MyModel = models.loadSchema('contract', {
+  fields:{
+    name          : "varchar",
+    version_major : "int",
+    version_minor : "varchar",
+    address       : "varchar",
+    // abi           : "varchar"
+  },
+  key:["name"]
 });
 
 MyModel.syncDB(function(err, result) {

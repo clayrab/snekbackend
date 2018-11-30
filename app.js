@@ -5,9 +5,7 @@ const bodyParser = require('body-parser'); //required for passport local strateg
 const passport = require('passport');
 const crypto = require('crypto');
 const models = require('./model.js').models;
-
-
-const config = require("./config.js");
+const config = require("./utils/config.js");
 const auth = require("./auth.js");
 const snekRoutes = require("./snekRoutes.js");
 
@@ -37,6 +35,11 @@ app.post('/createLocalUserFromKey',
 app.post('/rewardPreTokens',
   passport.authenticate('jwt', { session: false }),
   snekRoutes.rewardPreTokensRoute
+);
+
+app.post('/createSnekToken',
+  passport.authenticate('jwt', { session: false }),
+  snekRoutes.createSnekTokenRoute
 );
 
 app.post('/sendtokens',

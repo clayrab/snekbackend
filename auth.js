@@ -2,20 +2,22 @@ const LocalStrategy = require('passport-local').Strategy;
 const JwtStrategy = require('passport-jwt').Strategy;
 const ExtractJwt = require('passport-jwt').ExtractJwt;
 const passport = require('passport');
-const models = require('./model.js').models;
-const jwt = require('jsonwebtoken');
-const config = require("./config.js");
-const encryptor = require("./encryptor.js");
-const keyCache = require("./keyCache.js");
-const web3 = require("./web3Instance.js").web3;
-const utils = require("./utils.js");
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+
+const models = require('./model.js').models;
+const utils = require("./utils/utils.js");
+const config = require("./utils/config.js");
+const crypt = require("./utils/crypt.js");
+const keyCache = require("./utils/keyCache.js");
+
+const web3 = require("./web3Instance.js").web3;
 
 exports.saltRounds = 10;
 exports.createLocalUserRoute = async (req, res, next) => {
   try {
     await utils.mustNotFind(models.instance.user, {name: req.body.username});
-    let storableHash = await utils.bcryptHash(req.body.pw, exports.saltRounds);
+    let storableHash = await crypt.bcryptHash(req.body.pw, exports.saltRounds);
     let entropy = web3.utils.keccak256(req.body.username+req.body.pw+config.accountSalt);
     let acct = web3.eth.accounts.create(entropy);
     let storableKeyCrypt = encryptor.encrypt(acct.privateKey, req.body.username+req.body.pw+config.aesSalt);
@@ -92,7 +94,7 @@ exports.loginStrategy = new LocalStrategy(
   async(username, password, done) => {
     try {
       let user = await utils.mustFind(models.instance.user, {name: username});
-      let res = await utils.bcryptCompare(password, user.pwcrypt);
+      let res = await crypt.bcryptCompare(password, user.pwcrypt);
       if(!res) {
         done("did not pass", false, {message: 'Incorrect password.'});
       } else {
@@ -100,7 +102,7 @@ exports.loginStrategy = new LocalStrategy(
         let privKey = encryptor.decrypt(user.keycrypt, username+password+config.aesSalt);
         let runtimeKeyCrypt = encryptor.encrypt(privKey, username+randomSecret+config.aesSalt);
         await keyCache.keyCacheSet(username, runtimeKeyCrypt);
-        done(null, {name: user.name, randomSecret: randomSecret});
+        done(null, {name: user.name, pubkey: user.pubkey, randomSecret: randomSecret});
       }
     } catch(err) {
       return done(err);
