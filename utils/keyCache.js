@@ -16,7 +16,7 @@ const keyCache = new NodeCache({
   errorOnMissing: false
 });
 exports.keyCache = keyCache;
-exports.keyCacheSet = async(model) => {
+exports.keyCacheSet = async(key, value) => {
   return await new Promise((resolve, reject) => {
     keyCache.set(key, value, async( err, success ) => {
       if(err){
@@ -29,21 +29,37 @@ exports.keyCacheSet = async(model) => {
     });
   }).catch(err => {throw err});
 }
-exports.keyCacheSet = function(key, value, done) {
-
+exports.keyCacheGet = async(key) => {
+  return await new Promise((resolve, reject) => {
+    keyCache.get(key, function(err, value){
+      if(err){
+        reject("Error: " + err);
+      } else if(!value){
+        reject("Error finding key.");
+      } else {
+        resolve(value);
+      }
+    });
+  }).catch(err => {throw err});
 }
-exports.keyCacheGet = function(key, done) {
-  keyCache.get(key, function(err, value){
-    if(err){
-      throw "Error: " + err;
-    } else if(!value){
-      throw "Error finding key.";
-    } else {
-      done(value);
+
+// myCache.keys( function( err, mykeys ){
+//   if( !err ){
+//     console.log( mykeys );
+//    // [ "all", "my", "keys", "foo", "bar" ]
+//   }
+// });
+//
+exports.getPrivKey = async(name, password) => {
+  return await new Promise((resolve, reject) => {
+    try {
+      let privKey = crypt.decrypt(value, name+password+config.aesSalt);
+      resolve(privKey);
+    } catch(err) {
+      reject(err);
     }
-  });
+  }).catch(err => {throw err});
 }
-
 // obj = { my: "Special", variable: 42 };
 // myCache.set( "myKey", obj, function( err, success ){
 //   if( !err && success ){

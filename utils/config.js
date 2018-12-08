@@ -6,6 +6,7 @@ exports.env = {
   test: false,
   development: false
 };
+exports.owner = "clayrab";
 exports.env[currentEnv] = true;
 exports.jwtExpirationTime = 172800 //2*24*60*60;
 var accountSalt = "NonProdSalt";

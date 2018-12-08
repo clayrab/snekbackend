@@ -11,16 +11,21 @@ const config = require("./utils/config.js");
 const crypt = require("./utils/crypt.js");
 const keyCache = require("./utils/keyCache.js");
 
-const web3 = require("./web3Instance.js").web3;
+const web3 = require("./utils/web3Instance.js").web3;
 
 exports.saltRounds = 10;
 exports.createLocalUserRoute = async (req, res, next) => {
+  // validate req.body.pw req.body.username
   try {
     await utils.mustNotFind(models.instance.user, {name: req.body.username});
     let storableHash = await crypt.bcryptHash(req.body.pw, exports.saltRounds);
     let entropy = web3.utils.keccak256(req.body.username+req.body.pw+config.accountSalt);
     let acct = web3.eth.accounts.create(entropy);
-    let storableKeyCrypt = encryptor.encrypt(acct.privateKey, req.body.username+req.body.pw+config.aesSalt);
+    //let storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+req.body.pw+config.aesSalt);
+    let storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+req.body.pw+config.aesSalt);
+    if(req.body.name == config.owner) {
+      storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+config.ownerSalt+config.aesSalt);
+    }
     let newuser = new models.instance.user({
         name: req.body.username,
         pubkey: acct.address,
@@ -33,17 +38,23 @@ exports.createLocalUserRoute = async (req, res, next) => {
     await utils.save(newuser);
     utils.ok200(newuser, res);
   } catch (err) {
-    console.log("here?");
-    console.log(err);
     next(err);
   }
 }
 
 exports.createLocalUserFromKeyRoute = async (req, res, next) => {
+  // validate req.body.pw req.body.username req.body.key
+  // key should start with "0x"
   try {
     await utils.mustNotFind(models.instance.user,{name: req.body.username});
-    let storableKeyCrypt = encryptor.encrypt(req.body.key, req.body.username+req.body.pw+config.aesSalt);
-    // decrypt using password, reencrypt using runtime password, and store in runtime map
+    let storableHash = await crypt.bcryptHash(req.body.pw, exports.saltRounds);
+    let storableKeyCrypt = crypt.encrypt(req.body.key, req.body.username+req.body.pw+config.aesSalt);
+    let acct = web3.eth.accounts.privateKeyToAccount(req.body.key);
+    if(req.body.name != config.owner) {
+      console.log("isowner");
+      storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+config.ownerSalt+config.aesSalt);
+    }
+
     let newuser = new models.instance.user({
         name: req.body.username,
         pubkey: acct.address,
@@ -58,11 +69,6 @@ exports.createLocalUserFromKeyRoute = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-}
-authenticate = async(model, done) => {
-  return await new Promise((resolve, reject) => {
-
-  }).catch(err => {throw err});
 }
 exports.loginRoute = function(req, res, next) {
   try {
@@ -74,6 +80,7 @@ exports.loginRoute = function(req, res, next) {
         } else if(info){
           next("error. info: " + info);
         } else if(user){
+          console.log("login route");
           let token = jwt.sign(user, config.jwtSalt, {expiresIn: config.jwtExpirationTime});
           jwt.verify(token, config.jwtSalt, function(err, data){
             utils.ok200({token: token}, res);
@@ -98,11 +105,13 @@ exports.loginStrategy = new LocalStrategy(
       if(!res) {
         done("did not pass", false, {message: 'Incorrect password.'});
       } else {
-        let randomSecret = await encryptor.randomSecret();
-        let privKey = encryptor.decrypt(user.keycrypt, username+password+config.aesSalt);
-        let runtimeKeyCrypt = encryptor.encrypt(privKey, username+randomSecret+config.aesSalt);
+        let privKey = crypt.decrypt(user.keycrypt, username+password+config.aesSalt);
+        let randomSecret = await crypt.randomSecret();
+        let runtimeKeyCrypt = crypt.encrypt(privKey, username+randomSecret+config.aesSalt);
         await keyCache.keyCacheSet(username, runtimeKeyCrypt);
-        done(null, {name: user.name, pubkey: user.pubkey, randomSecret: randomSecret});
+        //done(null, {name: user.name, pubkey: user.pubkey, randomSecret: randomSecret});
+        // TODO FIX ME. remove password!!!!
+        done(null, {name: user.name, password: password, pubkey: user.pubkey, randomSecret: randomSecret});
       }
     } catch(err) {
       return done(err);
@@ -116,6 +125,19 @@ exports.jwtStrategy = new JwtStrategy({
   },
   async(jwt_payload, done) => {
     let user = await utils.mustFind(models.instance.user, {name: jwt_payload.name});
-    done(null, {name: user.name, randomSecret: jwt_payload.randomSecret});
+    user.randomSecret = jwt_payload.randomSecret;
+    // if(jwt_payload.password) {
+    //   //let user = await utils.mustFind(models.instance.user, {name: user.name});
+    //   let privKey = crypt.decrypt(user.keycrypt, user.name+jwt_payload.password+config.aesSalt);
+    //   if(user.name != config.owner) {
+    //     privKey = crypt.decrypt(user.keycrypt, user.name+config.ownerSalt+config.aesSalt);
+    //   }
+    //   let randomSecret = await crypt.randomSecret();
+    //   let devRuntimeKeyCrypt = crypt.encrypt(privKey, user.name+user.randomSecret+config.aesSalt);
+    //   await keyCache.keyCacheSet(user.name+"dev", devRuntimeKeyCrypt);
+    //   //await keyCache.keyCacheSet(username, runtimeKeyCrypt);
+    // }
+    done(null, user);
+    //done(null, {name: user.name, pubkey: jwt_payload.pubkey, randomSecret: jwt_payload.randomSecret});
   }
 );

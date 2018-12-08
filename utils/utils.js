@@ -10,7 +10,8 @@ exports.error500 = function(error, res) {
   res.status(500);
   res.send(error);
 }
-exports.save = async(model, done) => {
+
+exports.save = async(model) => {
   return await new Promise((resolve, reject) => {
     model.save(function(err){
       if(err) {
@@ -35,7 +36,7 @@ exports.mustFind = async(model, keyMap) => {
   }).catch(err => {throw err});
 }
 
-exports.mustNotFind = async(model, keyMap, done) => {
+exports.mustNotFind = async(model, keyMap) => {
   return await new Promise((resolve, reject) => {
     model.findOne(keyMap, function (err, retObj) {
       if(err){
@@ -48,14 +49,3 @@ exports.mustNotFind = async(model, keyMap, done) => {
     });
   }).catch(err => {throw err});
 }
-
-
-// Creating a new Promise like the other answers suggest works fine in this case, but as a general rule, util.promisify can stop you from writing the same thing many times.
-//
-// So you can do something like this instead: (node.js v8.0.0+)
-//
-// const util = require('util');
-// async function start() {
-//     let server = Http.createServer(app);
-//     await util.promisify(server.listen.bind(server))(port);
-// }
