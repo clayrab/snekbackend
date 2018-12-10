@@ -60,6 +60,7 @@ var MyModel = models.loadSchema('user', {
     pwcrypt   : "varchar",
     keycrypt  : "varchar",
     unredeemed: "int",
+    approved  : "int",
     mineMax   : "int",
     haul      : "int",
   },
@@ -77,11 +78,40 @@ var MyModel = models.loadSchema('contract', {
     address       : "varchar",
     abi           : "varchar",
     bytecode      : "varchar",
-    // version_major : "int",
-    // version_minor : "varchar",
-    //
   },
   key:["name"]
+});
+
+MyModel.syncDB(function(err, result) {
+    if (err) throw err;
+});
+
+// Goes through these states:
+// broadcast/unmined(confirmed = 0) - at this point their unredeemed balance should go to 0.
+// mined approval(confirmed > N)  - once approved, the mine() function is called as the user.
+//
+// These 2 states are encoded into the "synced" field
+var MyModel = models.loadSchema('chainevent', {
+  fields:{
+    txid          : "varchar",
+    username      : "varchar",
+    block         : "varchar",
+    type          : "varchar",
+    confirmed     : "int",
+  },
+  key:["txid", "username", "block"]
+});
+
+MyModel.syncDB(function(err, result) {
+    if (err) throw err;
+});
+
+var MyModel = models.loadSchema('synchronization', {
+  fields:{
+    type          : "varchar",
+    latest        : "int",
+  },
+  key:["type",]
 });
 
 MyModel.syncDB(function(err, result) {

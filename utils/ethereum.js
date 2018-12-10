@@ -5,9 +5,9 @@ const keyCache = require("./keyCache.js");
 const crypt = require("./crypt.js");
 const config = require("./config.js");
 
-exports.link = function() {
-  dispatcher.bytecode = dispatcher.bytecode.replace('1111222233334444555566667777888899990000', dispatcherStorageDepl.contractAddress.slice(2));
-}
+// exports.link = function() {
+//   dispatcher.bytecode = dispatcher.bytecode.replace('1111222233334444555566667777888899990000', dispatcherStorageDepl.contractAddress.slice(2));
+// }
 //let snekContract = null;
 exports.getContract = async(name) => {
   //if (!snekContract) {
@@ -29,22 +29,10 @@ exports.getBalance = async(user) => {
 exports.makeAcctFromCache = async(name, password) => {
   return await new Promise((resolve, reject) => {
     try {
-      // if(name == config.owner) {
-      //   password == config.ownerSalt;
-      // }
       keyCache.keyCacheGet(name).then((value) =>{
-        console.log("keyCacheGet");
-        // console.log(value);
-        console.log(name);
-        console.log(password);
-        console.log(config.aesSalt);
-        console.log(value);
         let privKey = crypt.decrypt(value, name+password+config.aesSalt);
-        console.log(privKey);
-        //let acct = web3.eth.accounts.privateKeyToAccount(privKey);
-        //console.log(acct);
-
-        resolve({});
+        let acct = web3.eth.accounts.privateKeyToAccount(privKey);
+        resolve(acct);
       }).catch(err => {
         reject(err);
       });
@@ -53,23 +41,25 @@ exports.makeAcctFromCache = async(name, password) => {
     }
   }).catch(err => {throw err});
 }
-exports.sendContractCall = async(user, method, options) => {
+
+exports.sendContractCall = async(user, method, options, confCallback) => {
   return await new Promise(async(resolve, reject) => {
-    console.log('user.name + ' + user.name);
     exports.makeAcctFromCache(user.name, user.randomSecret).then((acct) => {
-      resolve({})
-      // web3.eth.accounts.wallet.add(acct)
-      // method.send(options, function(error, transactionHash){
-      // }).on('error', function(error){
-      //   reject(error);
-      // }).on('transactionHash', function(transactionHash){
-      // }).on('receipt', function(receipt){
-      //   resolve(receipt);
-      // }).on('confirmation', function(confirmationNumber, receipt){
-      //   // fires each time tx is mined up to the 24th confirmationNumber
-      // }).then(function(newContractInstance){
-      // });
-      // web3.eth.accounts.wallet.remove(acct);
+      web3.eth.accounts.wallet.add(acct);
+      method.send(options, function(error, transactionHash){
+      }).on('error', function(error){
+        reject(error);
+      }).on('transactionHash', function(transactionHash){
+      }).on('receipt', function(receipt){
+        resolve(receipt);
+      }).on('confirmation', function(confirmationNumber, receipt){
+        // fires each time tx is mined up to the 24th confirmationNumber
+        if(confCallback) {
+          confCallback(confirmationNumber, receipt);
+        }
+      }).then(function(newContractInstance){
+      });
+      web3.eth.accounts.wallet.remove(acct);
     }).catch(err => {
       reject(err);
     });

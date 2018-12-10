@@ -12,6 +12,7 @@ const config = require("./utils/config.js");
 const ethereum = require("./utils/ethereum.js");
 const utils = require("./utils/utils.js");
 const crypt = require("./utils/crypt.js");
+const snek = require("./utils/snek.js");
 const keyCache = require("./utils/keyCache.js");
 
 let app = express();
@@ -27,39 +28,18 @@ passport.use(auth.loginStrategy);
 passport.use('jwt', auth.jwtStrategy);
 
 app.post('/login', auth.loginRoute);
+app.post('/createLocalUser', auth.createLocalUserRoute);
+app.post('/createLocalUserFromKey', auth.createLocalUserFromKeyRoute);
+app.post('/setRoot', snekRoutes.setRootRoute);
+app.post('/synchronizeEvents', passport.authenticate('jwt', { session: false }), snekRoutes.synchronizeEventsRoute);
+app.post('/getEvents', snekRoutes.getEventsRoute);
+app.post('/getOwner', snekRoutes.getOwnerRoute);
+app.post('/rewardPreTokens', passport.authenticate('jwt', { session: false }), snekRoutes.rewardPreTokensRoute);
+app.post('/createSnekToken', passport.authenticate('jwt', { session: false }), snekRoutes.createSnekTokenRoute);
+app.post('/mine', passport.authenticate('jwt', { session: false }), snekRoutes.mineRoute);
+app.post('/sendEth', passport.authenticate('jwt', { session: false }), snekRoutes.sendEthRoute);
+app.post('/getBalances', passport.authenticate('jwt', { session: false }), snekRoutes.getBalances);
 
-app.post('/createLocalUser',
-  auth.createLocalUserRoute
-);
-
-app.post('/createLocalUserFromKey',
-  auth.createLocalUserFromKeyRoute
-);
-
-app.post('/rewardPreTokens',
-  passport.authenticate('jwt', { session: false }),
-  snekRoutes.rewardPreTokensRoute
-);
-
-app.post('/createSnekToken',
-  passport.authenticate('jwt', { session: false }),
-  snekRoutes.createSnekTokenRoute
-);
-
-app.post('/mine',
-  passport.authenticate('jwt', { session: false }),
-  snekRoutes.mineRoute
-);
-
-app.post('/sendEth',
-  passport.authenticate('jwt', { session: false }),
-  snekRoutes.sendEthRoute
-);
-
-app.post('/getBalances',
-  passport.authenticate('jwt', { session: false }),
-  snekRoutes.getBalances
-);
 
 app.post('/sendtokens',
   passport.authenticate('jwt', { session: false }),
@@ -95,6 +75,10 @@ app.use(function(req, res, next) {
 
 // error handlers
 app.use(function(err, req, res, next) {
+  // TypeError: Cannot read property 'fromRed' of null
+  // => password for decryption was wrong and privateKeyToAccount(privKey) is throwing this
+  //
+  //
   console.log("*********************************** express error handler middleware ***********************************");
   console.log("*********************************** BEGIN ERROR ***********************************");
   console.log(err);
@@ -109,22 +93,29 @@ app.use(function(err, req, res, next) {
 });
 app.on('listening', async () => {
     // server ready to accept connections here
-
 });
 
-
 app.listen(3001, async() => {
-  console.log('Listening on port 3001!');
-  console.log("****** config owner key cache ******");
-  let randomSecret = await crypt.randomSecret();
-  let user = await utils.mustFind(models.instance.user, {name: config.owner});
-  let privKey = crypt.decrypt(user.keycrypt, config.owner+config.ownerSalt+config.aesSalt);
-  let runtimeKeyCrypt  = crypt.encrypt(privKey, config.owner+config.ownerSalt+config.aesSalt);
-  console.log(config.owner);
-  console.log(config.ownerSalt);
-  console.log(config.aesSalt);
-  console.log(privKey);
-  console.log(runtimeKeyCrypt);
-  await keyCache.keyCacheSet(config.owner + "runtime", runtimeKeyCrypt);
+  try {
+    console.log('****** Listening on port 3001! ******');
+    utils.configureOwnerCache();
+    snek.synchronizeEvents();
+  } catch(err) {
+    console.log("******************************** ERROR RETRIEVING OWNER KEY ******************************** ");
+    console.log("******************************** ERROR RETRIEVING OWNER KEY ******************************** ");
+    console.log("******************************** ERROR RETRIEVING OWNER KEY ******************************** ");
+    console.log("******************************** ERROR RETRIEVING OWNER KEY ******************************** ");
+    console.log("******************************** ERROR RETRIEVING OWNER KEY ******************************** ");
+    console.log("******************************** ERROR RETRIEVING OWNER KEY ******************************** ");
+    console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
+    console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
+    console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
+    console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
+    console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
+    console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
+    console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
+    console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
+    throw err;
+  }
 });
 module.exports = app;

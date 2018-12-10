@@ -32,6 +32,7 @@ exports.createLocalUserRoute = async (req, res, next) => {
         pwcrypt: storableHash,
         keycrypt: storableKeyCrypt,
         unredeemed: 0,
+        approved: 0,
         mineMax: 1000,
         haul: 0,
     });
@@ -51,20 +52,24 @@ exports.createLocalUserFromKeyRoute = async (req, res, next) => {
     let storableKeyCrypt = crypt.encrypt(req.body.key, req.body.username+req.body.pw+config.aesSalt);
     let acct = web3.eth.accounts.privateKeyToAccount(req.body.key);
     if(req.body.name != config.owner) {
-      console.log("isowner");
+      // owner key must be accessible to entire app
       storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+config.ownerSalt+config.aesSalt);
     }
-
     let newuser = new models.instance.user({
         name: req.body.username,
         pubkey: acct.address,
         pwcrypt: storableHash,
         keycrypt: storableKeyCrypt,
         unredeemed: 0,
+        approved: 0,
         mineMax: 1000,
         haul: 0,
     });
     await utils.save(newuser);
+    if(req.body.name != config.owner) {
+      // useful for development, configureOwnerCache also fires on startup
+      await utils.configureOwnerCache();
+    }
     utils.ok200(newuser, res);
   } catch (err) {
     next(err);
@@ -80,7 +85,6 @@ exports.loginRoute = function(req, res, next) {
         } else if(info){
           next("error. info: " + info);
         } else if(user){
-          console.log("login route");
           let token = jwt.sign(user, config.jwtSalt, {expiresIn: config.jwtExpirationTime});
           jwt.verify(token, config.jwtSalt, function(err, data){
             utils.ok200({token: token}, res);
@@ -106,6 +110,10 @@ exports.loginStrategy = new LocalStrategy(
         done("did not pass", false, {message: 'Incorrect password.'});
       } else {
         let privKey = crypt.decrypt(user.keycrypt, username+password+config.aesSalt);
+        if(username == config.owner) {
+          // owner key must be accessible to entire app
+          privKey = crypt.decrypt(user.keycrypt, username+config.ownerSalt+config.aesSalt);
+        }
         let randomSecret = await crypt.randomSecret();
         let runtimeKeyCrypt = crypt.encrypt(privKey, username+randomSecret+config.aesSalt);
         await keyCache.keyCacheSet(username, runtimeKeyCrypt);

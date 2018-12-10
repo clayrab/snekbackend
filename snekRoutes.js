@@ -16,6 +16,53 @@ let abis = {
   snekCoin0_0_1: require('./eth/abi/SnekCoin0_0_1.json'),
 }
 
+exports.synchronizeEventsRoute = async (req, res, next) => {
+  if(req.user.name == config.owner){
+    snek.synchronizeEvents(req.user);
+    utils.ok200({status: "done"}, res);
+  } else {
+    console.log("here?")
+    utils.error401Unauthorized(res)
+  }
+}
+
+exports.getEventsRoute = async (req, res, next) => {
+  // let snekTokenContract = await ethereum.getContract("snekCoinToken");
+  // // let events = snekTokenContract.events.allEvents({fromBlock: 0, toBlock: 'latest'});
+  // // console.log(events);
+  //
+  // snekTokenContract.getPastEvents('ApprovedMine', {
+  //     //filter: {myIndexedParam: [20,23], myOtherIndexedParam:'0x123456789...'}, // Using an array means OR: e.g. 20 or 23
+  //     fromBlock: 0,
+  //     toBlock: 'latest'
+  //   },
+  //   function(error, events){
+  //     // console.log("error");
+  //     // console.log(error);
+  //     // console.log(events);
+  //     for(let i = 0; i < events.length; i++) {
+  //       console.log(events[i].event)
+  //     }
+  //   }
+  // )
+  utils.ok200({}, res);
+}
+
+exports.getOwnerRoute = async (req, res, next) => {
+  //let snekContract = ethereum.getContract("snekCoinToken");
+  let owner = await snek.getOwner(req.user);
+  let snekBal = await snek.getTotalSupply();
+  let root = await snek.getRoot();
+  let sender = await snek.getSender();
+  keyCache.keyCacheGet(config.owner + "runtimepubkey").then((value) =>{
+    utils.ok200({sender: sender, root: root, configowner: value, owner: owner}, res);
+  });
+}
+
+exports.setRootRoute = async (req, res, next) => {
+  let receipt = await snek.setRoot();
+  utils.ok200({receipt: receipt}, res);
+}
 exports.rewardPreTokensRoute = async (req, res, next) => {
   try {
     if(!req.body.howmany){
@@ -47,8 +94,9 @@ exports.freeMineRoute = async (req, res, next) => {
     if(!req.body.howmany){
       throw "Must provide howmany";
     }
-    let snekContract = ethereum.getContract("SnekCoinToken");
-    snek.approveMine(req.user, req.body.howmany);
+    let howMany = parseInt(req.body.howmany, 10);
+    let snekContract = ethereum.getContract("snekCoinToken");
+    snek.approveMine(req.user, howMany);
     let receipt = await ethereum.sendContractCall(
       req.user,
       snekContract.methods.mineWithSnek(1000), {
@@ -68,22 +116,12 @@ exports.mineRoute = async (req, res, next) => {
     if(!req.body.howmany){
       throw "Must provide howmany";
     }
-    console.log("mineroote");
-
-    await snek.approveMine(req.user, req.body.howmany);
-    // TODO: fraud
-    //console.log(snekContract);
-    // let receipt = await ethereum.sendContractCall(
-    //   req.user,
-    //   snekContract.methods.mine(req.body.howmany),
-    //    {
-    //     from: req.user.pubkey,
-    //     gas: 3000000,
-    //     gasPrice: 20000000000,
-    //     value: 30000,
-    //   }
-    //);
-    utils.ok200({status: "OK"}, res);
+    // let value = crypt.encrypt("secret", "password");
+    // let out = crypt.decrypt(value, "password");
+    // utils.ok200({out: out}, res);
+    let howMany = parseInt(req.body.howmany, 10);
+    let receipt = await snek.approveMine(req.user, howMany);
+    utils.ok200(receipt, res);
   }
   catch(err) {
     next(err);
@@ -109,24 +147,20 @@ exports.sendSnekRoute =  async (req, res, next) => {
 }
 exports.getBalances = async (req, res, next) => {
   try {
-    console.log("getbalances");
-    console.log(req.user);
-    // let snekContract = await ethereum.getContract("snekCoinToken");
-    // console.log(snekContract);
-    let snekBal = await snek.getTotalSupply();
+    let snekContract = await ethereum.getContract("snekCoinToken");
+    let snekBal = await snek.getBalance(req.user);
     let ethBal = await ethereum.getBalance(req.user);
     let user = await utils.mustFind(models.instance.user, {name: req.user.name});
     let unredeemedBal = user.unredeemed;
     let balances = {
       eth: ethBal,
-      snek: 10,
+      snek: snekBal,
       unredeemed: unredeemedBal,
     };
     utils.ok200(balances, res);
   } catch(err) {
     next(err);
   }
-  // let ethBal = await ethereum.getBalance(req.user);
 }
 exports.createSnekTokenRoute = async(req, res, next) => {
   // TODO validate
@@ -139,9 +173,9 @@ exports.createSnekTokenRoute = async(req, res, next) => {
     throw "only owner can deploy contracts";
   }
   try {
-    //acct[0] = "0x627306090abab3a6e1400e9345bc60c78a8bef57"
+    let owner = await utils.mustFind(models.instance.user, {name: req.user.name});
     let snekCoinArgs = [web3.utils.asciiToHex(req.body.name), req.body.decimals, req.body.totalSupply];
-    let snekCoin001Depl = await ethereum.deploy("snekCoin0_0_1", abis.snekCoin0_0_1, [], "0x627306090abab3a6e1400e9345bc60c78a8bef57");
+    let snekCoin001Depl = await ethereum.deploy("snekCoin0_0_1", abis.snekCoin0_0_1, [], owner.pubkey);
     await utils.save(
       new models.instance.contract({
         name: "snekCoin0_0_1",
@@ -151,7 +185,7 @@ exports.createSnekTokenRoute = async(req, res, next) => {
         bytecode: abis.snekCoin0_0_1.bytecode,
       })
     );
-    let dispatcherStorageDepl = await ethereum.deploy("dispatcherStorage", abis.dispatcherStorage, [snekCoin001Depl.contractAddress], "0x627306090abab3a6e1400e9345bc60c78a8bef57");
+    let dispatcherStorageDepl = await ethereum.deploy("dispatcherStorage", abis.dispatcherStorage, [snekCoin001Depl.contractAddress], owner.pubkey);
     await utils.save(
       new models.instance.contract({
         name: "dispatcherStorage",
@@ -162,7 +196,7 @@ exports.createSnekTokenRoute = async(req, res, next) => {
       })
     );
     abis.dispatcher.bytecode = abis.dispatcher.bytecode.replaceAll('1111222233334444555566667777888899990000', dispatcherStorageDepl.contractAddress.slice(2));
-    let dispatcherDepl = await ethereum.deploy("dispatcher", abis.dispatcher, [], "0x627306090abab3a6e1400e9345bc60c78a8bef57");
+    let dispatcherDepl = await ethereum.deploy("dispatcher", abis.dispatcher, [], owner.pubkey);
     await utils.save(
       new models.instance.contract({
         name: "dispatcher",
@@ -174,7 +208,7 @@ exports.createSnekTokenRoute = async(req, res, next) => {
     );
 
     abis.snekCoinBack.bytecode = abis.snekCoinBack.bytecode.replaceAll('__LibInterface__________________________', dispatcherDepl.contractAddress.slice(2))
-    let snekCoinBackDepl = await ethereum.deploy("snekCoinBack", abis.snekCoinBack, snekCoinArgs, "0x627306090abab3a6e1400e9345bc60c78a8bef57");
+    let snekCoinBackDepl = await ethereum.deploy("snekCoinBack", abis.snekCoinBack, snekCoinArgs, owner.pubkey);
     await utils.save(
       new models.instance.contract({
         name: "snekCoinBack",
@@ -185,7 +219,7 @@ exports.createSnekTokenRoute = async(req, res, next) => {
       })
     );
 
-    let snekCoinTokenDepl = await ethereum.deploy("snekCoinToken", abis.snekCoinToken, [snekCoinBackDepl.contractAddress], "0x627306090abab3a6e1400e9345bc60c78a8bef57");
+    let snekCoinTokenDepl = await ethereum.deploy("snekCoinToken", abis.snekCoinToken, [snekCoinBackDepl.contractAddress], owner.pubkey);
     await utils.save(
       new models.instance.contract({
         name: "snekCoinToken",
@@ -196,12 +230,26 @@ exports.createSnekTokenRoute = async(req, res, next) => {
       })
     );
 
-    let snekCoinBackContract = new web3.eth.Contract(abis.snekCoinBack.abi, snekCoinBackDepl.address);
-    snekCoinBackContract.methods.setRoot(snekCoinBackDepl.address);
-    utils.ok200({status: "done"}, res);
+    let snekContract = await ethereum.getContract("snekCoinToken");
+    let snekBackContract = await ethereum.getContract("snekCoinBack");
+    let pubkey = await keyCache.keyCacheGet(config.owner + "runtimepubkey");
+    let runtimeOwner = {
+      name: config.owner + "runtime",
+      randomSecret: config.ownerSalt,
+    };
+
+    let receipt = await ethereum.sendContractCall(
+      runtimeOwner,
+      snekBackContract.methods.setRoot(snekContract.options.address),
+       {
+        from: pubkey,
+        gas: 3000000,
+        gasPrice: 20000000000,
+      }
+    );
+
+    utils.ok200({setRootReceipt: receipt}, res);
   } catch (err) {
-    console.log("here?");
-    console.log(err);
     next(err);
   }
 }
