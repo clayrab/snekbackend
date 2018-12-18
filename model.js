@@ -67,10 +67,6 @@ var MyModel = models.loadSchema('user', {
   key:["name"],
 });
 
-MyModel.syncDB(function(err, result) {
-    if (err) throw err;
-});
-
 var MyModel = models.loadSchema('contract', {
   fields:{
     name          : "varchar",
@@ -91,15 +87,35 @@ MyModel.syncDB(function(err, result) {
 // mined approval(confirmed > N)  - once approved, the mine() function is called as the user.
 //
 // These 2 states are encoded into the "synced" field
+var MyModel = models.loadSchema('block', {
+  fields: {
+    hashid          : "varchar",
+    nexthash        : "varchar",
+    number          : "int",
+    confirmedevents : {
+      type: "set",
+      typeDef: "<varchar>",
+    }
+  },
+  key : [["hashid"], "number"],
+  clustering_order: {"number": "desc"},
+//   key: ["number"],
+//   clustering_order: "desc"
+});
+
+MyModel.syncDB(function(err, result) {
+    if (err) throw err;
+});
+
 var MyModel = models.loadSchema('chainevent', {
   fields:{
     txid          : "varchar",
     username      : "varchar",
-    block         : "varchar",
     type          : "varchar",
-    confirmed     : "int",
+    blocknumber   : "int",
+    confblock     : "int",
   },
-  key:["txid", "username", "block"]
+  key:["txid"]
 });
 
 MyModel.syncDB(function(err, result) {

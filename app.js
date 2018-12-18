@@ -14,6 +14,7 @@ const utils = require("./utils/utils.js");
 const crypt = require("./utils/crypt.js");
 const snek = require("./utils/snek.js");
 const keyCache = require("./utils/keyCache.js");
+const web3 = require("./utils/web3Instance.js").web3;
 
 let app = express();
 app.disable('x-powered-by')
@@ -98,8 +99,12 @@ app.on('listening', async () => {
 app.listen(3001, async() => {
   try {
     console.log('****** Listening on port 3001! ******');
+
+    // IF NO BLOCKS IN DATABASE, INSERT A ROOT BLOCK
+    utils.insertRootBlock();
     utils.configureOwnerCache();
-    snek.synchronizeEvents();
+    ethereum.synchronize(snek.makeApprovalConfirmationFunc);
+
   } catch(err) {
     console.log("******************************** ERROR RETRIEVING OWNER KEY ******************************** ");
     console.log("******************************** ERROR RETRIEVING OWNER KEY ******************************** ");

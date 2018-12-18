@@ -10,6 +10,7 @@ exports.owner = "clayrab";
 exports.env[currentEnv] = true;
 exports.jwtExpirationTime = 172800; //2*24*60*60;
 exports.confirmationsRequired = 4;
+exports.gameMax = 1000;
 var accountSalt = "NonProdSalt";
 var aesSalt = "NonProdAesSalt";
 var jwtSalt = "NonProdJwtSalt";

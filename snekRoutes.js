@@ -74,7 +74,7 @@ exports.rewardPreTokensRoute = async (req, res, next) => {
     if(user.haul >= user.mineMax) {
       throw "Cannot haul any more";
     }
-    if(howMany > 100 || howMany < 0) {
+    if(howMany > config.gameMax || howMany < 0) {
       throw "Howmany must be between 0 and 100";
     }
     if(user.haul + howMany > user.mineMax) {

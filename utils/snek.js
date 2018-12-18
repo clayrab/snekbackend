@@ -10,7 +10,8 @@ const web3 = require("./web3Instance.js").web3;
 exports.isFraud = async(user, howMany) => {
   return false;
 }
-let mineReady = async(previousNumberOfConf, numberOfConf, username, howMany) => {
+let isMineReady = async(previousNumberOfConf, numberOfConf, username, howMany) => {
+  // if approveMine has N confirmations, we're ready to mine it
   if(previousNumberOfConf < config.confirmationsRequired && numberOfConf >= config.confirmationsRequired) {
     console.log("done approving!!");
     let user = await utils.mustFind(models.instance.user, {name: username});
@@ -19,24 +20,36 @@ let mineReady = async(previousNumberOfConf, numberOfConf, username, howMany) => 
   }
 }
 
-let makeApprovalConfirmationFunc = function(username, howMany) {
-  return async(numberOfConf, receipt) => {
-    // confirm the event was logged already
+exports.makeApprovalConfirmationFunc = function(username, howMany) {
+  return async(lastBlockNumber, receipt) => {
+    // prepare to mine if the number of confirmations has just now exceeded the requirement
+    // insert event hash into block confirmedevents
+    // update confblock on chainevent
     console.log("logConfirmation");
     let chainEvent = await utils.mustFind(models.instance.chainevent, {txid: receipt.transactionHash});
     if(chainEvent.type == "ApproveMine") {
-      mineReady(chainEvent.confirmed, numberOfConf, username, howMany)
+      isMineReady(chainEvent.confblock - chainEvent.blocknumber, lastBlockNumber - chainEvent.blocknumber, username, howMany);
     }
     let newChainEvent = new models.instance.chainevent({
       txid: receipt.transactionHash,
-      block: receipt.blockHash,
       username: username,
       type: "ApproveMine",
-      confirmed: numberOfConf,
+      blocknumber: receipt.blockNumber,
+      confblock: lastBlockNumber,
     });
     await utils.save(newChainEvent);
-  }
+    // DO THIS FOR BLCOKS
+    // models.instance.Person.update({userID:1234, age:32}, {
+    //     info:{'$add':{'new2':'addition2'}},
+    //     phones:{'$add': ['12345']},
+    //     emails: {'$add': ['e@f.com']}
+    // }, function(err){
+    //     if(err) throw err;
+    //     done();
+    // });
 
+
+  }
 }
 
 exports.approveMine = async(user, howMany) => {
@@ -57,7 +70,7 @@ exports.approveMine = async(user, howMany) => {
         gas: 300000,
         gasPrice: 20000000000,
       },
-      makeApprovalConfirmationFunc(user.name, howMany)
+      makeApprovalConfirmationFunc(user.name, howMany),
     );
     let newChainEvent = new models.instance.chainevent({
         txid: receipt.transactionHash,
@@ -67,9 +80,6 @@ exports.approveMine = async(user, howMany) => {
         confirmed: 0,
     });
     await utils.save(newChainEvent);
-    let newUser = await utils.mustFind(models.instance.user, {name: user.name});
-    newUser.unredeemed = howMany;
-    await utils.save(newUser);
     return receipt;
   } else {
     throw "Cannot approve mine";
@@ -98,15 +108,18 @@ exports.synchronizeEvents = async() => {
 
   let lastBlockNumber = await web3.eth.getBlockNumber().then((value) => { return value; });
   let latestSyncedBlock = 0;
-  // try {
-  //   let latestSync = await exports.mustFind(models.instance.synchronization, {type: "blockchain"});
-  //   latestSyncedBlock = latestSync.latest;
-  // } catch (err) {
-  //   //ignore. unsync
-  // }
+  try {
+    let latestSync = await utils.mustFind(models.instance.synchronization, {type: "blockchain"});
+    latestSyncedBlock = latestSync.latest;
+  } catch (err) {
+    console.log(err);
+    //ignore. unsync
+  }
+  console.log("synchronize")
+  console.log(lastBlockNumber)
+  console.log(latestSyncedBlock)
   let snekTokenContract = await ethereum.getContract("snekCoinToken");
   await snekTokenContract.getPastEvents('ApprovedMine', {
-      //filter: {myIndexedParam: [20,23], myOtherIndexedParam:'0x123456789...'}, // Using an array means OR: e.g. 20 or 23
       fromBlock: latestSyncedBlock,
       toBlock: lastBlockNumber,
     },
@@ -117,36 +130,40 @@ exports.synchronizeEvents = async() => {
         try {
           let chainEvent = await utils.mustFind(models.instance.chainevent, {txid: events[i].transactionHash});
           username = chainEvent.username;
-          confirmations = chainEvent.confirmed;
         } catch(err) {
           // if not found, it should have been. Find the user via pubkey.
           let tx = await web3.eth.getTransaction(events[i].transactionHash);
           let user = await utils.mustFind(models.instance.user, {pubkey: tx.from});
           username = user.name;
-          confirmations = 0;
         }
         let newConfirmations = lastBlockNumber-events[i].blockNumber;
-        if(confirmations < config.confirmationsRequired && confirmations > config.confirmationsRequired) {
-          // mine it or tell the user to mine it
-        }
+        console.log("events[i]");
+        //console.log(events[i]);
+        console.log(events[i].returnValues.amount);
+        let howMany = parseInt(events[i].returnValues.amount, 10);
+        let approvalConfFunc = makeApprovalConfirmationFunc(username, howMany);
+        // call it for any confirmations we missed while offline
+        approvalConfFunc(lastBlockNumber, events[i]);
 
         let chainevent = new models.instance.chainevent({
           txid: events[i].transactionHash,
           block: events[i].blockHash,
           username: username,
           type: "ApproveMine",
-          confirmed: lastBlockNumber-events[i].blockNumber,
+          confirmed: newConfirmations,
         });
         await utils.save(chainevent);
-        // let sync = new models.instance.synchronization({
-        //   type: "blockchain",
-        //   latest: lastBlockNumber - config.confirmationsRequired,
-        // });
-        // await exports.save(sync);
       }
+      let sync = new models.instance.synchronization({
+        type: "blockchain",
+        latest: lastBlockNumber - config.confirmationsRequired,
+      });
+      console.log(sync.latest);
+      await utils.save(sync);
+      console.log("****** synchronize events success ******");
     }
   )
-  console.log("****** synchronize events success ******");
+
 }
 exports.transfer = async(user, to, amount) => {
   // let snekContract = ethereum.getContract("snekCoinToken");
