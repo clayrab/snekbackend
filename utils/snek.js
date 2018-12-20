@@ -10,27 +10,8 @@ const web3 = require("./web3Instance.js").web3;
 exports.isFraud = async(user, howMany) => {
   return false;
 }
-function signAsOwner(signer, nonce, amount, forUser) {
-  let ret = [];
-  let data = (nonce * 2 ** 32) + amount;
-  let hexData = web3._extend.utils.toHex(data).slice(2)
-  for(let i = hexData.length; i < 16; i++) {
-    hexData = "0" + hexData
-  }
-  let message = "0x1337beef" + forUser.slice(2) + hexData;
-  //let msg = web3.sha3(hexData, {encoding: "hex"}); // 256 bit number as hex-encoded string.
-  let sig = web3.eth.sign(signer, message).slice(2);
-  let r = "0x" + sig.slice(0, 64);
-  let s = "0x" + sig.slice(64, 128);
-  let v = web3.toDecimal('0x' + sig.slice(128, 130)) + 27
-  ret.push(message);
-  ret.push(v);
-  ret.push(r);
-  ret.push(s);
-  return ret;
-}
 exports.mine = async(user, howMany) => {
-  // TODO: fraud
+// TODO: fraud
   let isFraud = false;
   // TODO: get this from the database:
   let minableAmount = howMany;
@@ -46,24 +27,66 @@ exports.mine = async(user, howMany) => {
     let approvalSig = await ethereum.sign(ownerPubkey, nonce, minableAmount, user.pubkey);
     let miningPrice = await snekContract.methods.getMiningPrice().call();
     let gasPrice = await web3.eth.getGasPrice();
-    let receipt = await ethereum.sendContractCall(
-      owner,
-      snekContract.methods.mine(approvalSig[0], approvalSig[1], approvalSig[2], approvalSig[3]),
-      {
-        from: ownerPubkey,
-        gas: 300000,
-        gasPrice: gasPrice,
-        value: miningPrice,
-      },
-    );
-    // let newChainEvent = new models.instance.chainevent({
-    //     txid: receipt.transactionHash,
-    //     block: receipt.blockHash,
-    //     username: user.name,
-    //     type: "ApproveMine",
-    //     confirmed: 0,
-    // });
-    // await utils.save(newChainEvent);
+    let method = snekContract.methods.mine(approvalSig[0], approvalSig[1], approvalSig[2], approvalSig[3]);
+    let options = {
+      from: user.pubkey,
+      gasPrice: gasPrice,
+      value: miningPrice,
+    };
+    console.log("nonce: " + nonce);
+    console.log("approvalSig: " + approvalSig);
+    console.log("gasPrice: " + gasPrice);
+    console.log("miningPrice: " + miningPrice);
+
+    console.log("get gas est...");
+    let gasEst = await ethereum.estimateGas(owner, method, options);
+    console.log("gasEst: " + gasEst);
+    // "The estimation can differ from the real cost, the state of the smart
+    // contract can change. Adding 10k seems to be sufficient.
+    options.gas = gasEst + 10000;
+    let receipt = await ethereum.sendContractCall(owner, method, options);
+    return receipt;
+  } else {
+    throw "Cannot approve mine";
+  }
+}
+
+exports.mineWithSnek = async(user, howMany) => {
+// TODO: fraud
+  let isFraud = false;
+  // TODO: get this from the database:
+  let minableAmount = howMany;
+  if (!isFraud) {
+    let ownerPubkey = await keyCache.keyCacheGet(config.owner + "runtimepubkey");
+    let owner = {
+      name: config.owner + "runtime",
+      randomSecret: config.ownerSalt,
+    };
+    let snekContract = await ethereum.getContract("snekCoinToken");
+    let nonce = await snekContract.methods.getUserNonce(user.pubkey).call();
+     //retData.balance = await dgtSubContract.methods.balanceOf(req.user.pubkey).call(function(error, result){
+    let approvalSig = await ethereum.sign(ownerPubkey, nonce, minableAmount, user.pubkey);
+    let miningPrice = await snekContract.methods.getMiningPrice().call();
+    let gasPrice = await web3.eth.getGasPrice();
+    //function mineWithSnek(bytes32 signedMessage, uint8 sigV, bytes32 sigR, bytes32 sigS, uint256 payAmount)
+    let method = snekContract.methods.mineWithSnek(approvalSig[0], approvalSig[1], approvalSig[2], approvalSig[3], miningPrice);
+    let options = {
+      from: user.pubkey,
+      gasPrice: gasPrice,
+    };
+    console.log("minewithsnek");
+    console.log("nonce: " + nonce);
+    console.log("approvalSig: " + approvalSig);
+    console.log("gasPrice: " + gasPrice);
+    console.log("miningPrice: " + miningPrice);
+
+    console.log("get gas est...");
+    let gasEst = await ethereum.estimateGas(owner, method, options);
+    console.log("gasEst: " + gasEst);
+    // "The estimation can differ from the real cost, the state of the smart
+    // contract can change. Adding 10k seems to be sufficient.
+    options.gas = gasEst + 10000;
+    let receipt = await ethereum.sendContractCall(owner, method, options);
     return receipt;
   } else {
     throw "Cannot approve mine";
@@ -155,12 +178,6 @@ exports.setRoot = async() => {
     name: config.owner + "runtime",
     randomSecret: config.ownerSalt,
   };
-  console.log("setroot")
-  console.log(JSON.stringify(owner))
-  console.log(pubkey)
-  console.log(snekContract.options.address)
-  //console.log(snekBackContract.address)
-
   let receipt = await ethereum.sendContractCall(
     owner,
     snekBackContract.methods.setRoot(snekContract.options.address),
@@ -172,21 +189,3 @@ exports.setRoot = async() => {
   );
   return receipt;
 }
-// function approveMine(S storage s, address who, uint256 amount) public returns(bool);
-// function isMineApproved(S storage s, address who) public view returns(uint256);
-// function changeMiningPrice(S storage s, uint256 amount)public returns(bool);
-// function changeMiningSnekPrice(S storage s, uint256 amount) public returns(bool);
-// function getMiningPrice(S storage s) public view returns(uint256);
-// function getMiningSnekPrice(S storage s) public view returns(uint256);
-// function mine(S storage s, uint256 amount, address sender, uint256 value) public returns(bool);
-// function mineWithSnek(S storage s, uint256 amount, address sender, uint256 payAmount) public returns(bool);
-// // ****** END CONTRACT BUSINESS FUNCTIONS ******
-//
-//
-// // ****** BEGIN ERC20 ******
-// function totalSupply(S storage s) public constant returns(uint256);
-// function balanceOf(S storage s, address tokenOwner) public view returns(uint256);
-// function allowance(S storage s, address tokenOwner, address spender) public view returns (uint256);
-// function transfer(S storage s, address to, uint256 tokens, address sender) public returns (bool);
-// function approve(S storage s, address spender, uint256 tokens, address sender) public returns (bool);
-// function transferFrom(S storage s, address from, address to, uint256 tokens, address sender) public returns (bool);

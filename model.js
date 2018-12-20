@@ -144,17 +144,17 @@ BlockModel.syncDB(function(err, result) {
 });
 
 
-var SyncModel = models.loadSchema('synchronization', {
-  fields:{
-    type          : "varchar",
-    latest        : "int",
-  },
-  key:["type",]
-});
-
-SyncModel.syncDB(function(err, result) {
-    if (err) throw err;
-});
+// var SyncModel = models.loadSchema('synchronization', {
+//   fields:{
+//     type          : "varchar",
+//     latest        : "int",
+//   },
+//   key:["type",]
+// });
+//
+// SyncModel.syncDB(function(err, result) {
+//     if (err) throw err;
+// });
 
 // Event Types:
 // 1: rewardPreTokens
@@ -164,34 +164,34 @@ SyncModel.syncDB(function(err, result) {
 // 5: free mine
 // 6: powerup bought
 // 7: powerup used
-var EventModel = models.loadSchema('event', {
-  fields: {
-    // basic event fields
-    eventId       : "int",
-    date          : "varchar",
-    eventType     : "int",
-    time          : "timestamp",
-    // 1: rewardPreTokens
-    rpt_amount    : "int",
-    // 2: blacklist user
-    bl_reason     : "int",
-    // 3: new user
-    // 4: mine
-    mn_amount     : "int",
-    mn_eth_amount : "int",
-    // 5: free mine
-    fmn_amount    : "int",
-    fmn_snk_amount: "int",
-    // 6: powerup purchased
-    pup_type      : "int",
-    pup_amount    : "int",
-    pup_snk_amount: "int",
-    // 7: powerup used
-    puu_type      : "int",
-  },
-  key: ["eventId", "date"],
-});
-
-EventModel.syncDB(function(err, result) {
-    if (err) throw err;
-});
+// var EventModel = models.loadSchema('event', {
+//   fields: {
+//     // basic event fields
+//     eventId       : "int",
+//     date          : "varchar",
+//     eventType     : "int",
+//     time          : "timestamp",
+//     // 1: rewardPreTokens
+//     rpt_amount    : "int",
+//     // 2: blacklist user
+//     bl_reason     : "int",
+//     // 3: new user
+//     // 4: mine
+//     mn_amount     : "int",
+//     mn_eth_amount : "int",
+//     // 5: free mine
+//     fmn_amount    : "int",
+//     fmn_snk_amount: "int",
+//     // 6: powerup purchased
+//     pup_type      : "int",
+//     pup_amount    : "int",
+//     pup_snk_amount: "int",
+//     // 7: powerup used
+//     puu_type      : "int",
+//   },
+//   key: ["eventId", "date"],
+// });
+//
+// EventModel.syncDB(function(err, result) {
+//     if (err) throw err;
+// });

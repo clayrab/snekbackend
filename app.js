@@ -87,7 +87,8 @@ app.listen(3001, async() => {
     console.log('****** Listening on port 3001! ******');
     utils.configureOwnerCache();
     ethereum.checkRootBlock();
-    ethereum.synchronize(snek.makeApprovalConfirmationFunc);
+    ethereum.synchronize();
+    ethereum.subscribe();
   } catch(err) {
     console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
     throw err;
