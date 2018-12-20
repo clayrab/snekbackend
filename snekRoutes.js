@@ -21,8 +21,8 @@ exports.synchronizeEventsRoute = async (req, res, next) => {
     snek.synchronizeEvents(req.user);
     utils.ok200({status: "done"}, res);
   } else {
-    console.log("here?")
-    utils.error401Unauthorized(res)
+    console.log("here?");
+    utils.error401Unauthorized(res);
   }
 }
 
@@ -68,7 +68,9 @@ exports.rewardPreTokensRoute = async (req, res, next) => {
     if(!req.body.howmany){
       throw "Must provide howmany";
     }
-    let user = await utils.mustFind(models.instance.user,{name: req.user.name});
+    //let usermap = await utils.mustFind(models.instance.usermap,{name: req.user.name});
+    let user = await utils.mustFind(models.instance.user,{pubkey: req.user.pubkey});
+
     //approveMine
     let howMany = parseInt(req.body.howmany, 10);
     if(user.haul >= user.mineMax) {
@@ -120,7 +122,7 @@ exports.mineRoute = async (req, res, next) => {
     // let out = crypt.decrypt(value, "password");
     // utils.ok200({out: out}, res);
     let howMany = parseInt(req.body.howmany, 10);
-    let receipt = await snek.approveMine(req.user, howMany);
+    let receipt = await snek.mine(req.user, howMany);
     utils.ok200(receipt, res);
   }
   catch(err) {
@@ -150,7 +152,8 @@ exports.getBalances = async (req, res, next) => {
     let snekContract = await ethereum.getContract("snekCoinToken");
     let snekBal = await snek.getBalance(req.user);
     let ethBal = await ethereum.getBalance(req.user);
-    let user = await utils.mustFind(models.instance.user, {name: req.user.name});
+    //let user = await utils.mustFind(models.instance.user, {name: req.user.name});
+    let user = await utils.mustFind(models.instance.user, {pubkey: req.user.pubkey});
     let unredeemedBal = user.unredeemed;
     let balances = {
       eth: ethBal,
@@ -173,7 +176,8 @@ exports.createSnekTokenRoute = async(req, res, next) => {
     throw "only owner can deploy contracts";
   }
   try {
-    let owner = await utils.mustFind(models.instance.user, {name: req.user.name});
+    //let owner = await utils.mustFind(models.instance.user, {name: req.user.name});
+    let owner = await utils.mustFind(models.instance.user, {pubkey: req.user.pubkey});
     let snekCoinArgs = [web3.utils.asciiToHex(req.body.name), req.body.decimals, req.body.totalSupply];
     let snekCoin001Depl = await ethereum.deploy("snekCoin0_0_1", abis.snekCoin0_0_1, [], owner.pubkey);
     await utils.save(

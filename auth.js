@@ -17,10 +17,11 @@ exports.saltRounds = 10;
 exports.createLocalUserRoute = async (req, res, next) => {
   // validate req.body.pw req.body.username
   try {
-    await utils.mustNotFind(models.instance.user, {name: req.body.username});
-    let storableHash = await crypt.bcryptHash(req.body.pw, exports.saltRounds);
+    await utils.mustNotFind(models.instance.usermap, {name: req.body.username});
+      let storableHash = await crypt.bcryptHash(req.body.pw, exports.saltRounds);
     let entropy = web3.utils.keccak256(req.body.username+req.body.pw+config.accountSalt);
     let acct = web3.eth.accounts.create(entropy);
+    await utils.mustNotFind(models.instance.user, {pubkey: acct.pubkey});
     //let storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+req.body.pw+config.aesSalt);
     let storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+req.body.pw+config.aesSalt);
     if(req.body.name == config.owner) {
@@ -37,6 +38,16 @@ exports.createLocalUserRoute = async (req, res, next) => {
         haul: 0,
     });
     await utils.save(newuser);
+    let usermap = new models.instance.usermap({
+        pubkey: acct.address,
+        name: req.body.username,
+    });
+    await utils.save(usermap);
+    let userchainevents = new models.instance.userchainevents({
+        userpubkey: acct.address,
+        chainevents: [],
+    });
+    await utils.save(userchainevents);
     utils.ok200(newuser, res);
   } catch (err) {
     next(err);
@@ -47,7 +58,7 @@ exports.createLocalUserFromKeyRoute = async (req, res, next) => {
   // validate req.body.pw req.body.username req.body.key
   // key should start with "0x"
   try {
-    await utils.mustNotFind(models.instance.user,{name: req.body.username});
+    //await utils.mustNotFind(models.instance.user,{name: req.body.username});
     let storableHash = await crypt.bcryptHash(req.body.pw, exports.saltRounds);
     let storableKeyCrypt = crypt.encrypt(req.body.key, req.body.username+req.body.pw+config.aesSalt);
     let acct = web3.eth.accounts.privateKeyToAccount(req.body.key);
@@ -55,6 +66,8 @@ exports.createLocalUserFromKeyRoute = async (req, res, next) => {
       // owner key must be accessible to entire app
       storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+config.ownerSalt+config.aesSalt);
     }
+    await utils.mustNotFind(models.instance.user,{pubkey: acct.address});
+
     let newuser = new models.instance.user({
         name: req.body.username,
         pubkey: acct.address,
@@ -66,6 +79,16 @@ exports.createLocalUserFromKeyRoute = async (req, res, next) => {
         haul: 0,
     });
     await utils.save(newuser);
+    let usermap = new models.instance.usermap({
+        pubkey: acct.address,
+        name: req.body.username,
+    });
+    await utils.save(usermap);
+    let userchainevents = new models.instance.userchainevents({
+        userpubkey: acct.address,
+        chainevents: [],
+    });
+    await utils.save(userchainevents);
     if(req.body.name != config.owner) {
       // useful for development, configureOwnerCache also fires on startup
       await utils.configureOwnerCache();
@@ -104,7 +127,10 @@ exports.loginStrategy = new LocalStrategy(
   },
   async(username, password, done) => {
     try {
-      let user = await utils.mustFind(models.instance.user, {name: username});
+      let usermap = await utils.mustFind(models.instance.usermap, {name: username});
+      let user = await utils.mustFind(models.instance.user, {pubkey: usermap.pubkey});
+
+
       let res = await crypt.bcryptCompare(password, user.pwcrypt);
       if(!res) {
         done("did not pass", false, {message: 'Incorrect password.'});
@@ -132,7 +158,8 @@ exports.jwtStrategy = new JwtStrategy({
     jwtFromRequest: ExtractJwt.fromAuthHeaderWithScheme('JWT'),
   },
   async(jwt_payload, done) => {
-    let user = await utils.mustFind(models.instance.user, {name: jwt_payload.name});
+    //let usermap = await utils.mustFind(models.instance.usermap, {name: username});
+    let user = await utils.mustFind(models.instance.user, {pubkey: jwt_payload.pubkey});
     user.randomSecret = jwt_payload.randomSecret;
     // if(jwt_payload.password) {
     //   //let user = await utils.mustFind(models.instance.user, {name: user.name});

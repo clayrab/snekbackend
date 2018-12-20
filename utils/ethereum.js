@@ -5,12 +5,22 @@ const keyCache = require("./keyCache.js");
 const crypt = require("./crypt.js");
 const config = require("./config.js");
 
-// exports.link = function() {
-//   dispatcher.bytecode = dispatcher.bytecode.replace('1111222233334444555566667777888899990000', dispatcherStorageDepl.contractAddress.slice(2));
-// }
-//let snekContract = null;
+exports.checkRootBlock =  async() => {
+  let rootBlock = await utils.find(models.instance.block, {number: config.rootBlockNumber});
+  if(!rootBlock) {
+    let block = await web3.eth.getBlock(config.rootBlockNumber);
+    let newBlock = new models.instance.block({
+      number: block.number,
+      hashid: block.hash,
+      timesReorged: 0,
+    });
+    await utils.save(newBlock);
+  }
+}
+exports.subscribe = async() => {
+
+}
 exports.synchronize = async(makeApprovalConfirmationFunc) => {
-  let snekContract = await exports.getContract("snekCoinToken");
   // on reorg or startup
   // find the latest known block
   // find all chainevents effected and update them
@@ -18,111 +28,138 @@ exports.synchronize = async(makeApprovalConfirmationFunc) => {
   // confirm latest is still latest and subscribe to events
   // TODO: get gaslimit Here
 
-  // Find the latest block we have synced with
-  let lastBlockNumber = await web3.eth.getBlockNumber().then((value) => {return value;});
-  let lastBlock = await web3.eth.getBlock(lastBlockNumber);
+  let lastBlock = await web3.eth.getBlock('latest');
   let block = lastBlock;
-  let lastKnownBlock = null;
-  let found = false;
-  while(!found && lastBlockNumber != 0) {
-    block = await web3.eth.getBlock(lastBlockNumber);
-    try {
-      lastKnownBlock = await utils.mustFind(models.instance.block, {hashid: block.hash});
-      found = true;
-    } catch(err){
-      lastBlockNumber--;
-    }
-  }
-
-  // get the block
-  // nuke all the blocks that were reorged and update the confirmations on affected chainevents(ApprovedMine confirmations)
-  let nextBlock = await utils.mustFind(models.instance.block, {hashid: lastKnownBlock.nexthash});
-  lastKnownBlock.nexthash = null;
-  while(nextBlock.nexthash != null) {
-    nextBlock = await utils.mustFind(models.instance.block, {hashid: nextBlock.nexthash});
-    //loop through confirmations and update the chainevents
-  }
-
-  await snekTokenContract.getPastEvents('ApprovedMine', {
-      fromBlock: lastKnownBlock.number+1,
-      toBlock: lastBlockNumber,
-    },
-    async(error, events) => {
-      for(let i = 0; i < events.length; i++) {
-        let username = null;
-        let confirmations = 0;
-        try {
-          let chainEvent = await utils.mustFind(models.instance.chainevent, {txid: events[i].transactionHash});
-          username = chainEvent.username;
-        } catch(err) {
-          // if not found, it should have been. Find the user via pubkey.
-          let tx = await web3.eth.getTransaction(events[i].transactionHash);
-          let user = await utils.mustFind(models.instance.user, {pubkey: tx.from});
-          username = user.name;
-        }
-        let newConfirmations = lastBlockNumber-events[i].blockNumber;
-        console.log("events[i]");
-        //console.log(events[i]);
-        console.log(events[i].returnValues.amount);
-        let howMany = parseInt(events[i].returnValues.amount, 10);
-        let approvalConfFunc = makeApprovalConfirmationFunc(username, howMany);
-        // call it for any confirmations we missed while offline
-        approvalConfFunc(lastBlockNumber, events[i]);
-
-        let chainevent = new models.instance.chainevent({
-          txid: events[i].transactionHash,
-          username: username,
-          type: "ApproveMine",
-          blocknumber: events[i].blockNumber,
-          confblock: lastBlockNumber,
-        });
-        await utils.save(chainevent);
+  //let lastKnownBlockNumber = -1;
+  let lastKnownBlockNumber = await web3.eth.getBlockNumber().then((value) => {return value;});
+  // Find the latest block we have synced with
+  while(true) {
+    let previousBlock = await utils.find(models.instance.block, {number: lastKnownBlockNumber});
+    if(previousBlock) {
+      let ethBlock = await web3.eth.getBlock(lastKnownBlockNumber);
+      if(previousBlock.hashid == ethBlock.hash) {
+        break;
       }
-      let sync = new models.instance.synchronization({
-        type: "blockchain",
-        latest: lastBlockNumber - config.confirmationsRequired,
-      });
-      console.log(sync.latest);
-      await utils.save(sync);
-      console.log("****** synchronize events success ******");
     }
-  )
+    lastKnownBlockNumber--;
+  }
+  console.log("latest block: " + lastBlock.number)
+  console.log("latest synced block: " + lastKnownBlockNumber)
 
-  // store "nexthash" in previous block
+  // // Update any reorged blocks between last sync and latest block
+  // for(let k = lastKnownBlockNumber + 1; k <= lastBlock.number; k++) {
+  //   let reorgedBlock = await utils.find(models.instance.block, {number: k});
+  //   let newBlock = await web3.eth.getBlock(k);
+  //   if(!reorgedBlock){
+  //     // new block
+  //     reorgedBlock = new models.instance.block({
+  //       number: k,
+  //       hashid: newBlock.hash,
+  //       timesReorged: 0,
+  //     });
+  //   } else {
+  //     // reorged block
+  //     reorgedBlock.timesReorged = reorgedBlock.timesReorged + 1;
+  //     reorgedBlock.hashid = newBlock.hash;
+  //   }
+  //   await utils.save(reorgedBlock);
+  // }
+  // // More blocks might be in Cassandra still with number greater than latest block
+  // let syncBlockNumber = lastBlock.number;
+  // while(true) {
+  //   syncBlockNumber++;
+  //   let nextReorgedBlock = await utils.find(models.instance.block, {number: syncBlockNumber});
+  //   if(!nextReorgedBlock){
+  //     break;
+  //   } else {
+  //     nextReorgedBlock.hashid = "reorged";
+  //     nextReorgedBlock.timesReorged = nextReorgedBlock.timesReorged + 1;
+  //     await utils.save(nextReorgedBlock);
+  //   }
+  // }
 
+  // Find past events and write them to the database
+  let snekTokenContract = await exports.getContract("snekCoinToken");
+  if(!snekTokenContract) {
+    console.log("************************ Contracts not deployed. Please deploy!!!!! ************************")
+  } else {
+    await snekTokenContract.getPastEvents('Mine', {
+        fromBlock: lastKnownBlockNumber + 1,
+        //toBlock: lastBlockNumber,
+      },
+      async(error, events) => {
+        if(error) {
+          console.log("error occured while synchronizing past events")
+        } else {
+          console.log("events.length: "+ events.length);
+          for(let i = 0; i < events.length; i++) {
 
-  // let previousBlocksHash = await utils.mustFind(models.instance.block, {
-  //   $orderby:{ '$desc' :'number' },
-  //   $limit: 11
-  // });
-  // while(previousBlocksHash)
-  // utils.find(models.instance.block, {hashid: block.hash})
-  // console.log(lastBlockNumber)
-  // console.log(latestSyncedBlock)
-
-console.log("DONE")
-  //
-  // snekContract.events.ApprovedMine({
-  //   //filter: {myIndexedParam: [20,23], myOtherIndexedParam: '0x123456789...'}, // Using an array means OR: e.g. 20 or 23
-  //   fromBlock: 0
-  // }, function(error, event){
-  //   //console.log(event);
-  // })
-  // .on('data', function(event){
-  //   //console.log(event); // same results as the optional callback above
-  // })
-  // .on('changed', function(event){
-  //   // Fires on each event which was removed from the blockchain. The event will have the additional property "removed: true".
-  //
-  // })
-  // .on('error', console.error);
-  //subscribe to ApproveMine event -> makeApprovalConfirmationFunc
-  // ethereum.watchChain(() => {
-  //   snek.synchronizeEvents();
-  // })
-  //snek.synchronizeEvents();
+            console.log(events[i])
+            let userChainEvents = await utils.mustFind(models.instance.userchainevents, {userpubkey: events[i].returnValues.sender});
+            let chainEvent = await utils.find(models.instance.chainevent, {txid: events[i].transactionHash});
+            if(chainEvent == null) {
+              // new event
+              if(!userChainEvents.chainevents) {
+                userChainEvents.chainevents = [events[i].transactionHash];
+              } else {
+                userChainEvents.chainevents.push(events[i].transactionHash);
+              }
+              await utils.save(userChainEvents);
+              let newChainEvent = new models.instance.chainevent({
+                txid: events[i].transactionHash,
+                userpubkey: events[i].returnValues.sender,
+                type: "Mine",
+                blockhash: events[i].blockHash,
+                blocknumber: events[i].blockNumber,
+                timesReorged: 0,
+                distReorged: 0,
+              });
+              await utils.save(newChainEvent);
+            } else {
+              // reorged event
+              // should already be in userchainevents...
+              let found = false;
+              for(let j = 0; j < userChainEvents.chainevents.length; j++) {
+                if(userChainEvents.chainevents[j] == events[i].transactionHash) {
+                  found = true;
+                  break;
+                }
+              }
+              if(!found) {
+                throw "Event not found in userchainevent. Database consistency error.";
+              }
+              chainEvent.timesReorged = chainEvent.timesReorged + 1;
+              let distanceReorged = chainEvent.blocknumber - lastKnownBlockNumber;
+              chainEvent.distReorged = chainEvent.distReorged + distanceReorged;
+              await utils.save(chainEvent);
+            }
+          }
+        }
+        console.log("****** synchronization success ******");
+      }
+    );
+  }
 }
-exports.sendContractCall = async(user, method, options, confCallback) => {
+exports.sign = async(signer, nonce, amount, forUser) => {
+  let ret = [];
+  let data = (nonce * 2 ** 32) + amount;
+  let hexData = web3.utils.toHex(data).slice(2);
+  for(let i = hexData.length; i < 16; i++) {
+    hexData = "0" + hexData
+  }
+  let message = "0x1337beef" + forUser.slice(2) + hexData;
+  let sig = (await web3.eth.sign(message, signer)).slice(2);
+  let r = "0x" + sig.slice(0, 64);
+  let s = "0x" + sig.slice(64, 128);
+  let v = web3.utils.toDecimal('0x' + sig.slice(128, 130)) + 27
+  ret.push(message);
+  ret.push(v);
+  ret.push(r);
+  ret.push(s);
+  return ret;
+}
+
+exports.sendContractCall = async(user, method, options) => {
   return await new Promise(async(resolve, reject) => {
     exports.makeAcctFromCache(user.name, user.randomSecret).then((acct) => {
       web3.eth.accounts.wallet.add(acct);
@@ -133,10 +170,6 @@ exports.sendContractCall = async(user, method, options, confCallback) => {
       }).on('receipt', function(receipt){
         resolve(receipt);
       }).on('confirmation', function(confirmationNumber, receipt){
-        // fires each time tx is mined up to the 24th confirmationNumber
-        // if(confCallback) {
-        //   confCallback(confirmationNumber, receipt);
-        // }
       }).then(function(newContractInstance){
       });
       web3.eth.accounts.wallet.remove(acct);
@@ -149,10 +182,14 @@ exports.sendContractCall = async(user, method, options, confCallback) => {
 }
 exports.getContract = async(name) => {
   //if (!snekContract) {
-  let cassandraContract = await utils.mustFind(models.instance.contract, {name: name});
-  let snekContract = new web3.eth.Contract(JSON.parse(cassandraContract.abi), cassandraContract.address);
-  //}
-  return snekContract;
+  let cassandraContract = await utils.find(models.instance.contract, {name: name});
+  if(cassandraContract){
+    let snekContract = new web3.eth.Contract(JSON.parse(cassandraContract.abi), cassandraContract.address);
+    //}
+    return snekContract;
+  } else {
+    return null;
+  }
 }
 exports.getBalance = async(user) => {
   return await new Promise(async(resolve, reject) => {

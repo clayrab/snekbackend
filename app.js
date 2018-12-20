@@ -53,20 +53,6 @@ app.post('/sendtokens',
   }
 );
 
-app.get('/getusers', async (req, res, next) => {
-  try {
-    var query = {
-      $limit: 10
-    }
-    models.instance.user.find(query, {raw: true}, function(err, users){
-      if(err) throw err;
-      utils.ok200(users, res);
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
   var err = new Error('404 Not Found');
@@ -99,26 +85,10 @@ app.on('listening', async () => {
 app.listen(3001, async() => {
   try {
     console.log('****** Listening on port 3001! ******');
-
-    // IF NO BLOCKS IN DATABASE, INSERT A ROOT BLOCK
-    utils.insertRootBlock();
     utils.configureOwnerCache();
+    ethereum.checkRootBlock();
     ethereum.synchronize(snek.makeApprovalConfirmationFunc);
-
   } catch(err) {
-    console.log("******************************** ERROR RETRIEVING OWNER KEY ******************************** ");
-    console.log("******************************** ERROR RETRIEVING OWNER KEY ******************************** ");
-    console.log("******************************** ERROR RETRIEVING OWNER KEY ******************************** ");
-    console.log("******************************** ERROR RETRIEVING OWNER KEY ******************************** ");
-    console.log("******************************** ERROR RETRIEVING OWNER KEY ******************************** ");
-    console.log("******************************** ERROR RETRIEVING OWNER KEY ******************************** ");
-    console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
-    console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
-    console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
-    console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
-    console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
-    console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
-    console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
     console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
     throw err;
   }

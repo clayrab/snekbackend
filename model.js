@@ -52,22 +52,69 @@ module.exports = {
   })
 };
 let models = module.exports.models;
-var MyModel = models.loadSchema('user', {
+var UserModel = models.loadSchema('user', {
   fields: {
-    name      : "varchar",
     //roles     : { type: "set", typeDef: "<int>"},
     pubkey    : "varchar",
+    name      : "varchar",
     pwcrypt   : "varchar",
     keycrypt  : "varchar",
     unredeemed: "int",
-    approved  : "int",
+    //approved  : "int",
     mineMax   : "int",
     haul      : "int",
   },
-  key:["name"],
+  key:["pubkey"],
+});
+UserModel.syncDB(function(err, result) {
+    if (err) throw err;
 });
 
-var MyModel = models.loadSchema('contract', {
+var UserMapModel = models.loadSchema('usermap', {
+  fields: {
+    name      : "varchar",
+    pubkey    : "varchar",
+  },
+  key:["name"],
+});
+UserMapModel.syncDB(function(err, result) {
+    if (err) throw err;
+});
+
+var ChainEventModel = models.loadSchema('chainevent', {
+  fields:{
+    txid          : "varchar",
+    userpubkey    : "varchar",
+    type          : "varchar",
+    blocknumber   : "int",
+    blockhash     : "varchar",
+    //confblock     : "int",
+    timesReorged  : "int",
+    distReorged   : "int",
+  },
+  key:["txid"]
+});
+
+ChainEventModel.syncDB(function(err, result) {
+    if (err) throw err;
+});
+
+var UserChainEventModel = models.loadSchema('userchainevents', {
+  fields:{
+    userpubkey    : "varchar",
+    chainevents   : {
+      type: "set",
+      typeDef: "<varchar>"
+    }
+  },
+  key:["userpubkey"]
+});
+
+UserChainEventModel.syncDB(function(err, result) {
+    if (err) throw err;
+});
+
+var ContractModel = models.loadSchema('contract', {
   fields:{
     name          : "varchar",
     owner         : "varchar",
@@ -78,51 +125,26 @@ var MyModel = models.loadSchema('contract', {
   key:["name"]
 });
 
-MyModel.syncDB(function(err, result) {
+ContractModel.syncDB(function(err, result) {
     if (err) throw err;
 });
 
-// Goes through these states:
-// broadcast/unmined(confirmed = 0) - at this point their unredeemed balance should go to 0.
-// mined approval(confirmed > N)  - once approved, the mine() function is called as the user.
-//
-// These 2 states are encoded into the "synced" field
-var MyModel = models.loadSchema('block', {
+var BlockModel = models.loadSchema('block', {
   fields: {
-    hashid          : "varchar",
-    nexthash        : "varchar",
     number          : "int",
-    confirmedevents : {
-      type: "set",
-      typeDef: "<varchar>",
-    }
+    hashid          : "varchar",
+    timesReorged    : "int",
   },
-  key : [["hashid"], "number"],
-  clustering_order: {"number": "desc"},
-//   key: ["number"],
-//   clustering_order: "desc"
+  key : [["number"]],
+  //clustering_order: {"number": "desc"},
 });
 
-MyModel.syncDB(function(err, result) {
+BlockModel.syncDB(function(err, result) {
     if (err) throw err;
 });
 
-var MyModel = models.loadSchema('chainevent', {
-  fields:{
-    txid          : "varchar",
-    username      : "varchar",
-    type          : "varchar",
-    blocknumber   : "int",
-    confblock     : "int",
-  },
-  key:["txid"]
-});
 
-MyModel.syncDB(function(err, result) {
-    if (err) throw err;
-});
-
-var MyModel = models.loadSchema('synchronization', {
+var SyncModel = models.loadSchema('synchronization', {
   fields:{
     type          : "varchar",
     latest        : "int",
@@ -130,7 +152,7 @@ var MyModel = models.loadSchema('synchronization', {
   key:["type",]
 });
 
-MyModel.syncDB(function(err, result) {
+SyncModel.syncDB(function(err, result) {
     if (err) throw err;
 });
 
@@ -142,7 +164,7 @@ MyModel.syncDB(function(err, result) {
 // 5: free mine
 // 6: powerup bought
 // 7: powerup used
-var MyModel = models.loadSchema('event', {
+var EventModel = models.loadSchema('event', {
   fields: {
     // basic event fields
     eventId       : "int",
@@ -170,6 +192,6 @@ var MyModel = models.loadSchema('event', {
   key: ["eventId", "date"],
 });
 
-MyModel.syncDB(function(err, result) {
+EventModel.syncDB(function(err, result) {
     if (err) throw err;
 });

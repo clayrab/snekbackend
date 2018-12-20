@@ -43,6 +43,21 @@ exports.find  = async(model, queryMap) => {
     });
   }).catch(err => {throw err});
 }
+
+exports.find = async(model, queryMap) => {
+  return await new Promise((resolve, reject) => {
+    model.findOne(queryMap, {allow_filtering: true}, function (err, retObj) {
+      if(err){
+        resolve(null);
+      }
+      if(!retObj){
+        resolve(null);
+      }
+      resolve(retObj);
+    });
+  }).catch(err => {throw err});
+}
+
 exports.mustFind = async(model, queryMap) => {
   return await new Promise((resolve, reject) => {
     model.findOne(queryMap, {allow_filtering: true}, function (err, retObj) {
@@ -70,18 +85,15 @@ exports.mustNotFind = async(model, queryMap) => {
     });
   }).catch(err => {throw err});
 }
-exports.insertRootBlock =  async() => {
-  var block = await web3.eth.getBlock(0);
-  console.log("insertRootBlock")
-  console.log(block.number)
-  
-
-}
 exports.configureOwnerCache = async() => {
-  let user = await exports.mustFind(models.instance.user, {name: config.owner});
-  let privKey = crypt.decrypt(user.keycrypt, config.owner + config.ownerSalt + config.aesSalt);
-  let runtimeKeyCrypt  = crypt.encrypt(privKey, config.owner+"runtime" + config.ownerSalt + config.aesSalt);
-  await keyCache.keyCacheSet(config.owner + "runtime", runtimeKeyCrypt);
-  await keyCache.keyCacheSet(config.owner + "runtimepubkey", user.pubkey);
-  console.log("****** config owner key cache success ******");
+  let user = await exports.find(models.instance.user, {name: config.owner});
+  if(!user){
+    console.log("****** NO OWNER FOUND. PLEASE CREATE OWNER. ******");
+  } else {
+    let privKey = crypt.decrypt(user.keycrypt, config.owner + config.ownerSalt + config.aesSalt);
+    let runtimeKeyCrypt  = crypt.encrypt(privKey, config.owner+"runtime" + config.ownerSalt + config.aesSalt);
+    await keyCache.keyCacheSet(config.owner + "runtime", runtimeKeyCrypt);
+    await keyCache.keyCacheSet(config.owner + "runtimepubkey", user.pubkey);
+    console.log("****** config owner key cache success ******");
+  }
 }
