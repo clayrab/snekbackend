@@ -1,17 +1,37 @@
 // Set the current environment to true in the env object
-var currentEnv = process.env.SNAKE_ENV || 'development';
-exports.env = {
-  production: false,
-  staging: false,
-  test: false,
-  development: false
-};
+var currentEnv = 'dev';
+process.argv.forEach(function (val, index, array) {
+  if(val.startsWith("env=")) {
+    currentEnv = val.split("=")[1];
+  }
+});
+console.log("config")
+console.log(currentEnv)
+exports.envs = { prod: 0, qa: 1, dev: 2 };
+if(currentEnv != "prod" && currentEnv != "qa" && currentEnv != "dev") {
+  throw "env must be prod, qa, or dev";
+}
+exports.currentEnv = currentEnv;
 exports.owner = "clayrab";
-exports.env[currentEnv] = true;
 exports.jwtExpirationTime = 172800; //2*24*60*60;
-exports.confirmationsRequired = 4;
+exports.chaidId = 3; // EIP 155. Needs to be 1 for mainnet, 3 for ropsten.
 exports.gameMax = 1000;
 exports.rootBlockNumber = 0;
+exports.network = "dev";
+if(currentEnv == "qa") {
+  exports.network = "ropsten";
+  exports.rootBlockNumber = 4688783;
+  exports.chaidId = 3; // EIP 155. Needs to be 1 for mainnet, 3 for ropsten.
+} else if(currentEnv == "qa") {
+  exports.network = "mainnet";
+  exports.rootBlockNumber = 6967018; // Dec 28 2018
+  exports.chaidId = 1; // EIP 155. Needs to be 1 for mainnet, 3 for ropsten.
+}
+
+
+
+
+//exports.rootBlockNumber = 0;
 var accountSalt = "NonProdSalt";
 var aesSalt = "NonProdAesSalt";
 var jwtSalt = "NonProdJwtSalt";

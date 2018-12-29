@@ -32,6 +32,11 @@ module.exports = {
           version_minor : "varchar",
           address       : "varchar"
         },
+        game: {
+          levelname     : "varchar",
+          score         : "int",
+          powerups      : "int",
+        }
       },
       udfs: {
         fLog: {
@@ -63,8 +68,40 @@ var UserModel = models.loadSchema('user', {
     //approved  : "int",
     mineMax   : "int",
     haul      : "int",
+    gamecount : "int",
+    totalhaul : "int",
   },
   key:["pubkey"],
+});
+UserModel.syncDB(function(err, result) {
+    if (err) throw err;
+});
+
+var UserModel = models.loadSchema('usergames', {
+  fields: {
+    //roles     : { type: "set", typeDef: "<int>"},
+    pubkey    : "varchar",
+    gameids   : {
+      type: "list",
+      typeDef: "<varchar>"
+    },
+  },
+  key:["pubkey"],
+});
+UserModel.syncDB(function(err, result) {
+    if (err) throw err;
+});
+
+var UserModel = models.loadSchema('game', {
+  fields: {
+    //roles     : { type: "set", typeDef: "<int>"},
+    pubkey    : "varchar",
+    time      : "timestamp",
+    levelname : "varchar",
+    score     : "int",
+    powerups  : "int",
+  },
+  key:[["pubkey"], "time"],
 });
 UserModel.syncDB(function(err, result) {
     if (err) throw err;

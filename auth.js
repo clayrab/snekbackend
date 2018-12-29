@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 
 const models = require('./model.js').models;
 const utils = require("./utils/utils.js");
+const ethereum = require("./utils/ethereum.js");
 const config = require("./utils/config.js");
 const crypt = require("./utils/crypt.js");
 const keyCache = require("./utils/keyCache.js");
@@ -27,6 +28,8 @@ exports.createLocalUserRoute = async (req, res, next) => {
     if(req.body.name == config.owner) {
       storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+config.ownerSalt+config.aesSalt);
     }
+    console.log("acct.privateKey")
+    console.log(acct.privateKey)
     let newuser = new models.instance.user({
         name: req.body.username,
         pubkey: acct.address,
@@ -66,8 +69,7 @@ exports.createLocalUserFromKeyRoute = async (req, res, next) => {
       // owner key must be accessible to entire app
       storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+config.ownerSalt+config.aesSalt);
     }
-    await utils.mustNotFind(models.instance.user,{pubkey: acct.address});
-
+    await utils.mustNotFind(models.instance.user, {pubkey: acct.address});
     let newuser = new models.instance.user({
         name: req.body.username,
         pubkey: acct.address,
@@ -77,6 +79,8 @@ exports.createLocalUserFromKeyRoute = async (req, res, next) => {
         approved: 0,
         mineMax: 1000,
         haul: 0,
+        gamecount: 0,
+        totalhaul: 0,
     });
     await utils.save(newuser);
     let usermap = new models.instance.usermap({
@@ -91,7 +95,7 @@ exports.createLocalUserFromKeyRoute = async (req, res, next) => {
     await utils.save(userchainevents);
     if(req.body.name != config.owner) {
       // useful for development, configureOwnerCache also fires on startup
-      await utils.configureOwnerCache();
+      await ethereum.configureOwnerCache();
     }
     utils.ok200(newuser, res);
   } catch (err) {
@@ -129,16 +133,17 @@ exports.loginStrategy = new LocalStrategy(
     try {
       let usermap = await utils.mustFind(models.instance.usermap, {name: username});
       let user = await utils.mustFind(models.instance.user, {pubkey: usermap.pubkey});
-
-
       let res = await crypt.bcryptCompare(password, user.pwcrypt);
       if(!res) {
         done("did not pass", false, {message: 'Incorrect password.'});
       } else {
         let privKey = crypt.decrypt(user.keycrypt, username+password+config.aesSalt);
+        console.log("login")
+        console.log(privKey)
         if(username == config.owner) {
           // owner key must be accessible to entire app
           privKey = crypt.decrypt(user.keycrypt, username+config.ownerSalt+config.aesSalt);
+          console.log(privKey)
         }
         let randomSecret = await crypt.randomSecret();
         let runtimeKeyCrypt = crypt.encrypt(privKey, username+randomSecret+config.aesSalt);
@@ -158,21 +163,9 @@ exports.jwtStrategy = new JwtStrategy({
     jwtFromRequest: ExtractJwt.fromAuthHeaderWithScheme('JWT'),
   },
   async(jwt_payload, done) => {
-    //let usermap = await utils.mustFind(models.instance.usermap, {name: username});
     let user = await utils.mustFind(models.instance.user, {pubkey: jwt_payload.pubkey});
     user.randomSecret = jwt_payload.randomSecret;
-    // if(jwt_payload.password) {
-    //   //let user = await utils.mustFind(models.instance.user, {name: user.name});
-    //   let privKey = crypt.decrypt(user.keycrypt, user.name+jwt_payload.password+config.aesSalt);
-    //   if(user.name != config.owner) {
-    //     privKey = crypt.decrypt(user.keycrypt, user.name+config.ownerSalt+config.aesSalt);
-    //   }
-    //   let randomSecret = await crypt.randomSecret();
-    //   let devRuntimeKeyCrypt = crypt.encrypt(privKey, user.name+user.randomSecret+config.aesSalt);
-    //   await keyCache.keyCacheSet(user.name+"dev", devRuntimeKeyCrypt);
-    //   //await keyCache.keyCacheSet(username, runtimeKeyCrypt);
-    // }
-    done(null, user);
-    //done(null, {name: user.name, pubkey: jwt_payload.pubkey, randomSecret: jwt_payload.randomSecret});
+    //done(null, user);
+    done(null, {name: user.name, pubkey: jwt_payload.pubkey, randomSecret: jwt_payload.randomSecret});
   }
 );

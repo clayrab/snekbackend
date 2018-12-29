@@ -4,6 +4,7 @@ const web3 = require("./web3Instance.js").web3;
 const keyCache = require("./keyCache.js");
 const crypt = require("./crypt.js");
 const config = require("./config.js");
+const ethereumjstx = require('ethereumjs-tx');
 
 exports.checkRootBlock =  async() => {
   let rootBlock = await utils.find(models.instance.block, {number: config.rootBlockNumber});
@@ -17,15 +18,16 @@ exports.checkRootBlock =  async() => {
     await utils.save(newBlock);
   }
 }
+
 exports.subscribe = async() => {
-  var subscription = web3.eth.subscribe('newBlockHeaders', function(error, result){
-    if (error) {
-      throw error;
-    }
-  })
-  .on("data", function(blockHeader){
-    exports.synchronize();
-  })
+  // var subscription = web3.eth.subscribe('newBlockHeaders', function(error, result){
+  //   if (error) {
+  //     throw error;
+  //   }
+  // })
+  // .on("data", function(blockHeader){
+  //   exports.synchronize();
+  // });
 //  .on("error", console.error);
 }
 let syncPastEvents = async(lastKnownBlockNumber, eventType) => {
@@ -94,13 +96,17 @@ exports.synchronize = async() => {
   // get past Events from last known block to new latest block and process
   // confirm latest is still latest and subscribe to events
   // TODO: get gaslimit Here
-
+  console.log("syncing");
   let lastBlock = await web3.eth.getBlock('latest');
+  console.log("latest block: " + lastBlock.number)
   let block = lastBlock;
   //let lastKnownBlockNumber = -1;
   let lastKnownBlockNumber = await web3.eth.getBlockNumber().then((value) => {return value;});
   // Find the latest block we have synced with
   while(true) {
+    if(lastKnownBlockNumber%1000 == 0){
+      console.log(lastKnownBlockNumber)
+    }
     let previousBlock = await utils.find(models.instance.block, {number: lastKnownBlockNumber});
     if(previousBlock) {
       let ethBlock = await web3.eth.getBlock(lastKnownBlockNumber);
@@ -110,7 +116,7 @@ exports.synchronize = async() => {
     }
     lastKnownBlockNumber--;
   }
-  console.log("latest block: " + lastBlock.number)
+
   console.log("latest synced block: " + lastKnownBlockNumber)
   // Update any reorged blocks between last sync and latest block
   for(let k = lastKnownBlockNumber + 1; k <= lastBlock.number; k++) {
@@ -148,7 +154,7 @@ exports.synchronize = async() => {
   await syncPastEvents(lastKnownBlockNumber, "MineWithSnek");
   await syncPastEvents(lastKnownBlockNumber, "Paid");
   await syncPastEvents(lastKnownBlockNumber, "SetOwner");
-  await syncPastEvents(lastKnownBlockNumber, "SetOwner");
+  await syncPastEvents(lastKnownBlockNumber, "SetRoot");
   await syncPastEvents(lastKnownBlockNumber, "ChangeMiningPrice");
   await syncPastEvents(lastKnownBlockNumber, "ChangeMiningSnekPrice");
   console.log("****** synchronization success ******");
@@ -234,11 +240,20 @@ exports.getBalance = async(user) => {
     });
   }).catch(err => {throw err});
 }
+exports.getPrivateKeyFromCache = async(name, password) => {
+  return await new Promise((resolve, reject) => {
+    keyCache.keyCacheGet(name).then((value) => {
+      let privKey = crypt.decrypt(value, name+password+config.aesSalt);
+      resolve(privKey);
+    }).catch(err => {
+      reject(err);
+    });;
+  }).catch(err => {throw err});
+}
 exports.makeAcctFromCache = async(name, password) => {
   return await new Promise((resolve, reject) => {
     try {
-      keyCache.keyCacheGet(name).then((value) =>{
-        let privKey = crypt.decrypt(value, name+password+config.aesSalt);
+      exports.getPrivateKeyFromCache(name, password).then((privKey) => {
         let acct = web3.eth.accounts.privateKeyToAccount(privKey);
         resolve(acct);
       }).catch(err => {
@@ -280,33 +295,95 @@ exports.sendEth = async(name, password, to, howMuch) => {
   }).catch(err => {throw err});
 }
 
+let sendRaw = async(rawTx, privKey) => {
+  return await new Promise((resolve, reject) => {
+    var privateKey = Buffer.from(privKey, 'hex');
+    var transaction = new ethereumjstx(rawTx);
+    transaction.sign(privateKey);
+    var serializedTx = transaction.serialize().toString('hex');
+    web3.eth.sendSignedTransaction('0x' + serializedTx, function(err, result) {
+      if(err) {
+        reject(err);
+      } else {
+        console.log("else")
+        console.log(result)
+        resolve(result);
+      }
+    })
+    .on('transactionHash', function (hash) {
+      console.log("transactionHash")
+      console.log(hash)
+      resolve(hash);
+    })
+    // .on('receipt', function (receipt) {
+    // console.log("receipt: " + receipt)
+    // })
+    // .on('confirmation', function (confirmationNumber, receipt) {
+    // console.log("conf: " + confirmationNumber, receipt)
+    // })
+    .on('error', (error) => {
+      reject(error);
+    });
+  }).catch(err => {throw err});
+}
+
+exports.deployRaw = async(contractName, abi, args) => {
+  return await new Promise((resolve, reject) => {
+    utils.mustNotFind(models.instance.contract, {name: contractName}).then(() => {
+      exports.makeAcctFromCache(config.owner+"runtime", config.ownerSalt).then((acct) => {
+        let privKey = acct.privateKey;
+        //await ethereum.getPrivateKeyFromCache(config.owner+"runtime", config.ownerSalt);
+        let contract = new web3.eth.Contract(abi.abi);
+        let deployableBytecode = contract.deploy({
+          data: abi.bytecode,
+          arguments: args
+        }).encodeABI();
+        web3.eth.getTransactionCount(acct.address).then((nonce) => {
+          var rawTx = {
+            nonce: web3.utils.toHex(nonce),
+            gasLimit: web3.utils.toHex(4000000),
+            gasPrice: web3.utils.toHex(1000000000),
+            data: deployableBytecode,
+            from: web3.utils.toHex(acct.address),
+            chainId: web3.utils.toHex(config.chaidId),
+          };
+          sendRaw(rawTx, privKey.slice(2)).then((hash) => {
+            resolve(hash);
+          }).catch(err => {throw err});
+        }).catch(err => {throw err});
+      }).catch(err => {throw err});
+    }).catch(err => {throw err});
+  }).catch(err => {throw err});
+}
 exports.deploy = async(contractName, abi, args, from) => {
   return await new Promise((resolve, reject) => {
     //TODO: validate options
     var options = {
       gas: 4000000, // 4m is ~ the limit
       //gas: gasEstimate,
-      gasPrice: 1000000000,
+      //gasPrice: 1000000000000,
+      gasPrice: 8000001,
       from: from,
     };
     let contract = new web3.eth.Contract(abi.abi);
     let tx = contract.deploy({data: abi.bytecode, arguments : args});
+
     utils.mustNotFind(models.instance.contract, {name: contractName}).then(() => {
       tx.send(options, function(error, transactionHash){
-        //console.log("transcationhash: " + transactionHash);
+        console.log("transcationhash: " + transactionHash);
       }).on('error', function(error){
         reject(error);
       }).on('transactionHash', function(transactionHash){
-        //console.log("on transcationhash: " + transactionHash);
+        console.log("on transcationhash: " + transactionHash);
       }).on('receipt', function(receipt){
         console.log("receipt.contractAddress : " + receipt.contractAddress); // contains the new contract address
         resolve(receipt);
       }).on('confirmation', function(confirmationNumber, receipt){
         // fires each time tx is mined up to the 24th confirmationNumber
-        // console.log("confirmationNumber: " + confirmationNumber);
+        console.log("confirmationNumber: " + confirmationNumber);
       }).then(function(newContractInstance){
-        // console.log("newContractInstance.options.address");
-        // console.log(newContractInstance.options.address);
+        console.log("newContractInstance.options.address");
+        console.log(newContractInstance.options.address);
       });
     }).catch(err => {
       reject(err);
@@ -314,4 +391,16 @@ exports.deploy = async(contractName, abi, args, from) => {
       //await utils.mustNotFind(models.instance.user,{name: options.name});
     //}).catch(err => {throw err});
   }).catch(err => {throw err});
+}
+exports.configureOwnerCache = async() => {
+  let user = await utils.find(models.instance.user, {name: config.owner});
+  if(!user){
+    console.log("****** NO OWNER FOUND. PLEASE CREATE OWNER. ******");
+  } else {
+    let privKey = crypt.decrypt(user.keycrypt, config.owner + config.ownerSalt + config.aesSalt);
+    let runtimeKeyCrypt  = crypt.encrypt(privKey, config.owner+"runtime" + config.ownerSalt + config.aesSalt);
+    await keyCache.keyCacheSet(config.owner + "runtime", runtimeKeyCrypt);
+    await keyCache.keyCacheSet(config.owner + "runtimepubkey", user.pubkey);
+    console.log("****** config owner key cache success ******");
+  }
 }

@@ -58,6 +58,20 @@ exports.find = async(model, queryMap) => {
   }).catch(err => {throw err});
 }
 
+exports.findAll = async(model, queryMap) => {
+  return await new Promise((resolve, reject) => {
+    model.find(queryMap, {allow_filtering: true}, function (err, retObj) {
+      if(err){
+        reject(err);
+      }
+      if(!retObj){
+        reject("Object not found in model: " + JSON.stringify(queryMap));
+      }
+      resolve(retObj);
+    });
+  }).catch(err => {throw err});
+}
+
 exports.mustFind = async(model, queryMap) => {
   return await new Promise((resolve, reject) => {
     model.findOne(queryMap, {allow_filtering: true}, function (err, retObj) {
@@ -84,16 +98,4 @@ exports.mustNotFind = async(model, queryMap) => {
       }
     });
   }).catch(err => {throw err});
-}
-exports.configureOwnerCache = async() => {
-  let user = await exports.find(models.instance.user, {name: config.owner});
-  if(!user){
-    console.log("****** NO OWNER FOUND. PLEASE CREATE OWNER. ******");
-  } else {
-    let privKey = crypt.decrypt(user.keycrypt, config.owner + config.ownerSalt + config.aesSalt);
-    let runtimeKeyCrypt  = crypt.encrypt(privKey, config.owner+"runtime" + config.ownerSalt + config.aesSalt);
-    await keyCache.keyCacheSet(config.owner + "runtime", runtimeKeyCrypt);
-    await keyCache.keyCacheSet(config.owner + "runtimepubkey", user.pubkey);
-    console.log("****** config owner key cache success ******");
-  }
 }

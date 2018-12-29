@@ -1,6 +1,4 @@
-
-truncate user; truncate usermap; truncate userchainevents; truncate chainevent; truncate block; truncate contract; 
-
+truncate user; truncate usermap; truncate userchainevents; truncate chainevent; truncate block; truncate contract; truncate game; truncate usergames;
 
 --- Cassandra ---
 prod:
@@ -17,7 +15,6 @@ migrate --reset
 
 --- Move contract ABI to backend ---
 cp /Users/clay/projects/rewardCoin/truffle/build/contracts/RewardToken.json eth/abi
-
 
 https://ethereum.github.io/yellowpaper/paper.pdf
 """

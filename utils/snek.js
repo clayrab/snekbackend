@@ -33,11 +33,11 @@ exports.mine = async(user, howMany) => {
       gasPrice: gasPrice,
       value: miningPrice,
     };
+
     console.log("nonce: " + nonce);
     console.log("approvalSig: " + approvalSig);
     console.log("gasPrice: " + gasPrice);
     console.log("miningPrice: " + miningPrice);
-
     console.log("get gas est...");
     let gasEst = await ethereum.estimateGas(owner, method, options);
     console.log("gasEst: " + gasEst);
@@ -79,7 +79,6 @@ exports.mineWithSnek = async(user, howMany) => {
     console.log("approvalSig: " + approvalSig);
     console.log("gasPrice: " + gasPrice);
     console.log("miningPrice: " + miningPrice);
-
     console.log("get gas est...");
     let gasEst = await ethereum.estimateGas(owner, method, options);
     console.log("gasEst: " + gasEst);

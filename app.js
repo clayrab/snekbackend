@@ -34,12 +34,16 @@ app.post('/createLocalUserFromKey', auth.createLocalUserFromKeyRoute);
 app.post('/setRoot', snekRoutes.setRootRoute);
 app.post('/synchronizeEvents', passport.authenticate('jwt', { session: false }), snekRoutes.synchronizeEventsRoute);
 app.post('/getEvents', snekRoutes.getEventsRoute);
+app.get('/getLastGas', snekRoutes.getLastGasRoute);
 app.post('/getOwner', snekRoutes.getOwnerRoute);
-app.post('/rewardPreTokens', passport.authenticate('jwt', { session: false }), snekRoutes.rewardPreTokensRoute);
+app.post('/rewardHaul', passport.authenticate('jwt', { session: false }), snekRoutes.rewardHaulRoute);
+app.post('/rewardUnredeemed', passport.authenticate('jwt', { session: false }), snekRoutes.rewardUnredeemedRoute);
 app.post('/createSnekToken', passport.authenticate('jwt', { session: false }), snekRoutes.createSnekTokenRoute);
 app.post('/mine', passport.authenticate('jwt', { session: false }), snekRoutes.mineRoute);
 app.post('/sendEth', passport.authenticate('jwt', { session: false }), snekRoutes.sendEthRoute);
-app.post('/getBalances', passport.authenticate('jwt', { session: false }), snekRoutes.getBalances);
+app.get('/getUser', passport.authenticate('jwt', { session: false }), snekRoutes.getUserRoute);
+app.get('/makeFakeGames', passport.authenticate('jwt', { session: false }), snekRoutes.makeFakeGames);
+app.get('/getGames', passport.authenticate('jwt', { session: false }), snekRoutes.getGames);
 
 
 app.post('/sendtokens',
@@ -85,7 +89,8 @@ app.on('listening', async () => {
 app.listen(3001, async() => {
   try {
     console.log('****** Listening on port 3001! ******');
-    utils.configureOwnerCache();
+    console.log("version.network: " + web3.eth.net.getId());
+    ethereum.configureOwnerCache();
     ethereum.checkRootBlock();
     ethereum.synchronize();
     ethereum.subscribe();

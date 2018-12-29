@@ -25,12 +25,17 @@ exports.synchronizeEventsRoute = async (req, res, next) => {
     utils.error401Unauthorized(res);
   }
 }
-
+exports.getLastGasRoute = async (req, res, next) => {
+  console.log("get last block?")
+  let lastBlock = await web3.eth.getBlock('latest');
+  console.log("ok")
+  utils.ok200({lastBlock: lastBlock}, res);
+}
 exports.getEventsRoute = async (req, res, next) => {
   // let snekTokenContract = await ethereum.getContract("snekCoinToken");
-  // // let events = snekTokenContract.events.allEvents({fromBlock: 0, toBlock: 'latest'});
-  // // console.log(events);
-  //
+  // let events = snekTokenContract.events.allEvents({fromBlock: 0, toBlock: 'latest'});
+  // console.log(events);
+
   // snekTokenContract.getPastEvents('ApprovedMine', {
   //     //filter: {myIndexedParam: [20,23], myOtherIndexedParam:'0x123456789...'}, // Using an array means OR: e.g. 20 or 23
   //     fromBlock: 0,
@@ -63,7 +68,118 @@ exports.setRootRoute = async (req, res, next) => {
   let receipt = await snek.setRoot();
   utils.ok200({receipt: receipt}, res);
 }
-exports.rewardPreTokensRoute = async (req, res, next) => {
+exports.rewardHaulRoute = async (req, res, next) => {
+  try {
+    if(!req.body.howmany){
+      throw "Must provide howmany";
+    }
+    if(!req.body.powerups){
+      throw "Must provide powerups";
+    }
+    if(!req.body.levelname){
+      throw "Must provide levelname";
+    }
+    let user = await utils.mustFind(models.instance.user,{pubkey: req.user.pubkey});
+    let howMany = parseInt(req.body.howmany, 10);
+    let powerups = parseInt(req.body.powerups, 10);
+    if(user.haul >= user.mineMax) {
+      throw "Cannot haul any more";
+    }
+    if(howMany > config.gameMax || howMany < 0) {
+      throw "Howmany must be between 0 and 100";
+    }
+    // if(user.haul + howMany > user.mineMax) {
+    //   howMany = user.mineMax - user.haul;
+    // }
+
+    let newGame = new models.instance.game({
+      pubkey: user.pubkey,
+      time: '2015-05-03 13:30:54.234',
+      levelname : req.body.levelname,
+      score     : howMany,
+      powerups  : powerups,
+    });
+    await utils.save(newGame);
+    user.unredeemed = user.unredeemed + howMany;
+    user.haul = user.haul + howMany;
+    user.totalhaul = user.totalhaul + howMany;
+    user.gamescount = user.gamescount + 1;
+    await utils.save(user);
+    utils.ok200(user, res);;
+  } catch(err) {
+    next(err);
+  }
+}
+exports.getGames = async(req, res, next) => {
+  //0x627306090abaB3A6e1400e9345bC60c78a8BEf57
+
+  let user = await utils.findAll(models.instance.game,{pubkey: req.user.pubkey});
+    utils.ok200(user, res);
+}
+
+
+exports.makeFakeGames = async (req, res, next) => {
+  let user = await utils.mustFind(models.instance.user,{pubkey: req.user.pubkey});
+  newGame = new models.instance.game({
+    pubkey: user.pubkey,
+    time: '2015-05-03 1:30:54.234',
+    levelname : "req.body.levelname",
+    score     : 100,
+    powerups  : 100,
+  });
+  await utils.save(newGame);
+  newGame = new models.instance.game({
+    pubkey: user.pubkey,
+    time: '2015-05-03 3:30:54.234',
+    levelname : "req.body.levelname",
+    score     : 100,
+    powerups  : 100,
+  });
+  await utils.save(newGame);
+  newGame = new models.instance.game({
+    pubkey: user.pubkey,
+    time: '2015-05-03 11:30:54.234',
+    levelname : "req.body.levelname",
+    score     : 100,
+    powerups  : 100,
+  });
+  await utils.save(newGame);
+  newGame = new models.instance.game({
+    pubkey: user.pubkey,
+    time: '2015-05-03 14:30:54.234',
+    levelname : "req.body.levelname",
+    score     : 100,
+    powerups  : 100,
+  });
+  await utils.save(newGame);
+  newGame = new models.instance.game({
+    pubkey: user.pubkey,
+    time: '2015-05-03 13:30:54.234',
+    levelname : "req.body.levelname",
+    score     : 100,
+    powerups  : 100,
+  });
+  await utils.save(newGame);
+  newGame = new models.instance.game({
+    pubkey: user.pubkey,
+    time: '2015-05-03 12:30:54.234',
+    levelname : "req.body.levelname",
+    score     : 100,
+    powerups  : 100,
+  });
+  await utils.save(newGame);
+  newGame = new models.instance.game({
+    pubkey: user.pubkey,
+    time: '2015-05-03 2:30:54.234',
+    levelname : "req.body.levelname",
+    score     : 100,
+    powerups  : 100,
+  });
+  await utils.save(newGame);
+  utils.ok200(newGame, res);
+}
+
+exports.rewardUnredeemedRoute = async (req, res, next) => {
   try {
     if(!req.body.howmany){
       throw "Must provide howmany";
@@ -84,13 +200,13 @@ exports.rewardPreTokensRoute = async (req, res, next) => {
     }
     user.unredeemed = user.unredeemed + howMany;
     user.haul = user.haul + howMany;
+    user.haul = user.haul + howMany;
     await utils.save(user);
     utils.ok200(user, res);;
   } catch(err) {
     next(err);
   }
 }
-
 exports.freeMineRoute = async (req, res, next) => {
   try {
     if(!req.body.howmany){
@@ -147,7 +263,7 @@ exports.sendSnekRoute =  async (req, res, next) => {
     next(err);
   }
 }
-exports.getBalances = async (req, res, next) => {
+exports.getUserRoute = async (req, res, next) => {
   try {
     let snekContract = await ethereum.getContract("snekCoinToken");
     let snekBal = await snek.getBalance(req.user);
@@ -158,13 +274,20 @@ exports.getBalances = async (req, res, next) => {
     let balances = {
       eth: ethBal,
       snek: snekBal,
+      pubkey: user.pubkey,
+      name: user.name,
       unredeemed: unredeemedBal,
+      mineMax: user.mineMax,
+      haul: user.haul,
+      gamecount: user.gamecount,
+      totalhaul: user.totalhaul,
     };
     utils.ok200(balances, res);
   } catch(err) {
     next(err);
   }
 }
+
 exports.createSnekTokenRoute = async(req, res, next) => {
   // TODO validate
   // TODO Needs to be broken into 5 separate APIs like getOrDeploy()
@@ -176,59 +299,67 @@ exports.createSnekTokenRoute = async(req, res, next) => {
     throw "only owner can deploy contracts";
   }
   try {
-    //let owner = await utils.mustFind(models.instance.user, {name: req.user.name});
     let owner = await utils.mustFind(models.instance.user, {pubkey: req.user.pubkey});
-    let snekCoinArgs = [web3.utils.asciiToHex(req.body.name), req.body.decimals, req.body.totalSupply];
-    let snekCoin001Depl = await ethereum.deploy("snekCoin0_0_1", abis.snekCoin0_0_1, [], owner.pubkey);
+
+    let snekCoin0_0_1Txhash = await ethereum.deployRaw("snekCoin0_0_1", abis.snekCoin0_0_1, []);
+    let snekCoin0_0_1Receipt = await web3.eth.getTransactionReceipt(snekCoin0_0_1Txhash);
     await utils.save(
       new models.instance.contract({
         name: "snekCoin0_0_1",
         owner: req.user.name,
-        address: snekCoin001Depl.contractAddress,
+        address: snekCoin0_0_1Receipt.contractAddress,
         abi: JSON.stringify(abis.snekCoin0_0_1.abi),
         bytecode: abis.snekCoin0_0_1.bytecode,
       })
     );
-    let dispatcherStorageDepl = await ethereum.deploy("dispatcherStorage", abis.dispatcherStorage, [snekCoin001Depl.contractAddress], owner.pubkey);
+
+    let dispatcherStorageDepl = await ethereum.deploy("dispatcherStorage", abis.dispatcherStorage, [snekCoin0_0_1Receipt.contractAddress], owner.pubkey);
+    let dispatcherStorageTxhash = await ethereum.deployRaw("dispatcherStorage", abis.dispatcherStorage, [snekCoin0_0_1Receipt.contractAddress]);
+    let dispatcherStorageReceipt = await web3.eth.getTransactionReceipt(dispatcherStorageTxhash);
     await utils.save(
       new models.instance.contract({
         name: "dispatcherStorage",
         owner: req.user.name,
-        address: dispatcherStorageDepl.contractAddress,
+        address: dispatcherStorageReceipt.contractAddress,
         abi: JSON.stringify(abis.dispatcherStorage.abi),
         bytecode: abis.dispatcherStorage.bytecode,
       })
     );
-    abis.dispatcher.bytecode = abis.dispatcher.bytecode.replaceAll('1111222233334444555566667777888899990000', dispatcherStorageDepl.contractAddress.slice(2));
-    let dispatcherDepl = await ethereum.deploy("dispatcher", abis.dispatcher, [], owner.pubkey);
+
+    abis.dispatcher.bytecode = abis.dispatcher.bytecode.replaceAll('1111222233334444555566667777888899990000', dispatcherStorageReceipt.contractAddress.slice(2));
+    let dispatcherTxhash = await ethereum.deployRaw("dispatcher", abis.dispatcher, []);
+    let dispatcherReceipt = await web3.eth.getTransactionReceipt(dispatcherTxhash);
     await utils.save(
       new models.instance.contract({
         name: "dispatcher",
         owner: req.user.name,
-        address: dispatcherDepl.contractAddress,
+        address: dispatcherReceipt.contractAddress,
         abi: JSON.stringify(abis.dispatcher.abi),
         bytecode: abis.dispatcher.bytecode,
       })
     );
 
-    abis.snekCoinBack.bytecode = abis.snekCoinBack.bytecode.replaceAll('__LibInterface__________________________', dispatcherDepl.contractAddress.slice(2))
-    let snekCoinBackDepl = await ethereum.deploy("snekCoinBack", abis.snekCoinBack, snekCoinArgs, owner.pubkey);
+    abis.snekCoinBack.bytecode = abis.snekCoinBack.bytecode.replaceAll('__LibInterface__________________________', dispatcherReceipt.contractAddress.slice(2))
+    let snekCoinArgs = [web3.utils.asciiToHex(req.body.name), req.body.decimals, req.body.totalSupply];
+    let snekCoinBackTxhash = await ethereum.deployRaw("snekCoinBack", abis.snekCoinBack, snekCoinArgs);
+    let snekCoinBackReceipt = await web3.eth.getTransactionReceipt(snekCoinBackTxhash);
     await utils.save(
       new models.instance.contract({
         name: "snekCoinBack",
         owner: req.user.name,
-        address: snekCoinBackDepl.contractAddress,
+        address: snekCoinBackReceipt.contractAddress,
         abi: JSON.stringify(abis.snekCoinBack.abi),
         bytecode: abis.snekCoinBack.bytecode,
       })
     );
 
-    let snekCoinTokenDepl = await ethereum.deploy("snekCoinToken", abis.snekCoinToken, [snekCoinBackDepl.contractAddress], owner.pubkey);
+    let snekCoinTokenTxhash = await ethereum.deployRaw("snekCoinToken", abis.snekCoinToken, [snekCoinBackReceipt.contractAddress]);
+    let snekCoinTokenReceipt = await web3.eth.getTransactionReceipt(snekCoinTokenTxhash);
     await utils.save(
       new models.instance.contract({
         name: "snekCoinToken",
         owner: req.user.name,
-        address: snekCoinTokenDepl.contractAddress,
+        address: snekCoinTokenReceipt.contractAddress,
         abi: JSON.stringify(abis.snekCoinToken.abi),
         bytecode: abis.snekCoinToken.bytecode,
       })
@@ -247,7 +378,7 @@ exports.createSnekTokenRoute = async(req, res, next) => {
       snekBackContract.methods.setRoot(snekContract.options.address),
        {
         from: pubkey,
-        gas: 3000000,
+        gas: 50000,
         gasPrice: 20000000000,
       }
     );
