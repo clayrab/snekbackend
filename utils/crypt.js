@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 function stringFromFakeBytes(bytesArray){
   // bytes array is an array of Numbers that we will treat as bytes
