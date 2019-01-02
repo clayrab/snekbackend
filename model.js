@@ -1,6 +1,6 @@
 
-var ExpressCassandra = require('express-cassandra');
-
+const ExpressCassandra = require('express-cassandra');
+const config = require("./utils/config.js");
 // COLLECTION TYPES:
 // mymap: {
 //         type: "map",
@@ -16,37 +16,50 @@ var ExpressCassandra = require('express-cassandra');
 //         type: "set",
 //         typeDef: "<varchar>"
 //     }
+let port = 9042;
+let host = '127.0.0.1';
+let keyspace = 'sc';
+if(config.currentEnv == "qa"){
+  // user different port and keyspace so we don't accidentally sync to the wrong chain.
+  port = 9043;
+  host = '127.0.0.1';
+  keyspace = 'scqa';
+} else if(config.currentEnv == "prod"){
+  port = 9044;
+  keyspace = 'scprod';
+}
+console.log("cassandra port: " + port)
 module.exports = {
  models:  ExpressCassandra.createClient({
     clientOptions: {
-        contactPoints: ['127.0.0.1'],
-        protocolOptions: { port: 9042 },
-        keyspace: 'sc',
+        contactPoints: [host],
+        protocolOptions: { port: port },
+        keyspace: keyspace,
         queryOptions: {consistency: ExpressCassandra.consistencies.one}
     },
     ormOptions: {
       udts: {
-        contract : {
-          name          : "varchar",
-          version_major : "int",
-          version_minor : "varchar",
-          address       : "varchar"
-        },
-        game: {
-          levelname     : "varchar",
-          score         : "int",
-          powerups      : "int",
-        }
+        // contract : {
+        //   name          : "varchar",
+        //   version_major : "int",
+        //   version_minor : "varchar",
+        //   address       : "varchar"
+        // },
+        // game: {
+        //   levelname     : "varchar",
+        //   score         : "int",
+        //   powerups      : "int",
+        // }
       },
       udfs: {
-        fLog: {
-            language: 'java',
-            code: 'return Double.valueOf(Math.log(input.doubleValue()));',
-            returnType: 'double',
-            inputs: {
-                input: 'double'
-            }
-        },
+        // fLog: {
+        //     language: 'java',
+        //     code: 'return Double.valueOf(Math.log(input.doubleValue()));',
+        //     returnType: 'double',
+        //     inputs: {
+        //         input: 'double'
+        //     }
+        // },
       },
       defaultReplicationStrategy : {
           class: 'SimpleStrategy',
@@ -129,7 +142,7 @@ var ChainEventModel = models.loadSchema('chainevent', {
     timesReorged  : "int",
     distReorged   : "int",
   },
-  key:["txid"]
+  key: ["txid"]
 });
 
 ChainEventModel.syncDB(function(err, result) {
@@ -144,7 +157,7 @@ var UserChainEventModel = models.loadSchema('userchainevents', {
       typeDef: "<varchar>"
     }
   },
-  key:["userpubkey"]
+  key: ["userpubkey"]
 });
 
 UserChainEventModel.syncDB(function(err, result) {
@@ -159,7 +172,7 @@ var ContractModel = models.loadSchema('contract', {
     abi           : "varchar",
     bytecode      : "varchar",
   },
-  key:["name"]
+  key: ["name"]
 });
 
 ContractModel.syncDB(function(err, result) {
@@ -172,7 +185,7 @@ var BlockModel = models.loadSchema('block', {
     hashid          : "varchar",
     timesReorged    : "int",
   },
-  key : [["number"]],
+  key: ["number"],
   //clustering_order: {"number": "desc"},
 });
 

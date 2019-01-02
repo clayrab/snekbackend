@@ -100,25 +100,24 @@ exports.synchronize = async() => {
   let lastBlock = await web3.eth.getBlock('latest');
   console.log("latest block: " + lastBlock.number)
   let block = lastBlock;
-  //let lastKnownBlockNumber = -1;
-  let lastKnownBlockNumber = await web3.eth.getBlockNumber().then((value) => {return value;});
+  let lastKnownBlockNumber = lastBlock.number;//await web3.eth.getBlockNumber().then((value) => {return value;});
   // Find the latest block we have synced with
+  console.log("searching for last known block...");
   while(true) {
     if(lastKnownBlockNumber%1000 == 0){
-      console.log(lastKnownBlockNumber)
+      console.log("searching... " + lastKnownBlockNumber);
     }
     let previousBlock = await utils.find(models.instance.block, {number: lastKnownBlockNumber});
     if(previousBlock) {
       let ethBlock = await web3.eth.getBlock(lastKnownBlockNumber);
       if(previousBlock.hashid == ethBlock.hash) {
+        console.log("found: " + previousBlock.hashid);
         break;
       }
     }
     lastKnownBlockNumber--;
   }
-
-  console.log("latest synced block: " + lastKnownBlockNumber)
-  // Update any reorged blocks between last sync and latest block
+  console.log("writing blocks to DB... " + lastKnownBlockNumber + " to " + lastBlock.number);
   for(let k = lastKnownBlockNumber + 1; k <= lastBlock.number; k++) {
     let reorgedBlock = await utils.find(models.instance.block, {number: k});
     let newBlock = await web3.eth.getBlock(k);
@@ -137,6 +136,7 @@ exports.synchronize = async() => {
     await utils.save(reorgedBlock);
   }
   // More blocks might be in Cassandra still with number greater than latest block
+  console.log("mark future reorged blocks in DB... ");
   let syncBlockNumber = lastBlock.number;
   while(true) {
     syncBlockNumber++;
@@ -348,6 +348,8 @@ exports.deployRaw = async(contractName, abi, args) => {
             chainId: web3.utils.toHex(config.chaidId),
           };
           sendRaw(rawTx, privKey.slice(2)).then((hash) => {
+            console.log("sendraw hash");
+            console.log(hash);
             resolve(hash);
           }).catch(err => {throw err});
         }).catch(err => {throw err});
@@ -393,14 +395,19 @@ exports.deploy = async(contractName, abi, args, from) => {
   }).catch(err => {throw err});
 }
 exports.configureOwnerCache = async() => {
-  let user = await utils.find(models.instance.user, {name: config.owner});
-  if(!user){
+  let usermap = await utils.find(models.instance.usermap, {name: config.owner});
+  if(!usermap) {
     console.log("****** NO OWNER FOUND. PLEASE CREATE OWNER. ******");
   } else {
-    let privKey = crypt.decrypt(user.keycrypt, config.owner + config.ownerSalt + config.aesSalt);
-    let runtimeKeyCrypt  = crypt.encrypt(privKey, config.owner+"runtime" + config.ownerSalt + config.aesSalt);
-    await keyCache.keyCacheSet(config.owner + "runtime", runtimeKeyCrypt);
-    await keyCache.keyCacheSet(config.owner + "runtimepubkey", user.pubkey);
-    console.log("****** config owner key cache success ******");
+    let user = await utils.find(models.instance.user, {pubkey: usermap.pubkey});
+    if(!user){
+      console.log("****** NO OWNER FOUND. PLEASE CREATE OWNER. ******");
+    } else {
+      let privKey = crypt.decrypt(user.keycrypt, config.owner + config.ownerSalt + config.aesSalt);
+      let runtimeKeyCrypt  = crypt.encrypt(privKey, config.owner+"runtime" + config.ownerSalt + config.aesSalt);
+      await keyCache.keyCacheSet(config.owner + "runtime", runtimeKeyCrypt);
+      await keyCache.keyCacheSet(config.owner + "runtimepubkey", user.pubkey);
+      console.log("****** config owner key cache success ******");
+    }
   }
 }

@@ -89,11 +89,13 @@ app.on('listening', async () => {
 app.listen(3001, async() => {
   try {
     console.log('****** Listening on port 3001! ******');
-    console.log("version.network: " + web3.eth.net.getId());
-    ethereum.configureOwnerCache();
+    console.log("version.network: " + (await web3.eth.net.getId()));
+    //let validDB = utils.validateModel();
+    //console.log("validdb: " + validDB);
     ethereum.checkRootBlock();
-    ethereum.synchronize();
-    ethereum.subscribe();
+    await ethereum.synchronize();
+    await ethereum.subscribe();
+    await ethereum.configureOwnerCache();
   } catch(err) {
     console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
     throw err;

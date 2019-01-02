@@ -34,19 +34,20 @@ exports.save = async(model) => {
     });
   }).catch(err => {throw err});
 }
-exports.find  = async(model, queryMap) => {
-  return await new Promise((resolve, reject) => {
-    model.find(queryMap, function(err, collection){
-      if(err) throw err;
-      //people is an array of model instances containing the persons with name `John`
-      resolve(collection);
-    });
-  }).catch(err => {throw err});
-}
+// exports.find = async(model, queryMap) => {
+//   return await new Promise((resolve, reject) => {
+//     model.find(queryMap, function(err, res){
+//       if(err) {
+//         reject(err);
+//       }
+//       resolve(res);
+//     });
+//   }).catch(err => {throw err});
+// }
 
 exports.find = async(model, queryMap) => {
   return await new Promise((resolve, reject) => {
-    model.findOne(queryMap, {allow_filtering: true}, function (err, retObj) {
+    model.findOne(queryMap, function (err, retObj) {
       if(err){
         resolve(null);
       }
@@ -60,7 +61,7 @@ exports.find = async(model, queryMap) => {
 
 exports.findAll = async(model, queryMap) => {
   return await new Promise((resolve, reject) => {
-    model.find(queryMap, {allow_filtering: true}, function (err, retObj) {
+    model.findAll(queryMap, function (err, retObj) {
       if(err){
         reject(err);
       }
@@ -74,7 +75,7 @@ exports.findAll = async(model, queryMap) => {
 
 exports.mustFind = async(model, queryMap) => {
   return await new Promise((resolve, reject) => {
-    model.findOne(queryMap, {allow_filtering: true}, function (err, retObj) {
+    model.findOne(queryMap, function (err, retObj) {
       if(err){
         reject(err);
       }

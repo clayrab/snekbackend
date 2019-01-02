@@ -113,8 +113,8 @@ exports.rewardHaulRoute = async (req, res, next) => {
 exports.getGames = async(req, res, next) => {
   //0x627306090abaB3A6e1400e9345bC60c78a8BEf57
 
-  let user = await utils.findAll(models.instance.game,{pubkey: req.user.pubkey});
-    utils.ok200(user, res);
+  let user = await utils.find(models.instance.game,{pubkey: req.user.pubkey});
+  utils.ok200(user, res);
 }
 
 
@@ -303,8 +303,13 @@ exports.createSnekTokenRoute = async(req, res, next) => {
 
     let snekCoin0_0_1Txhash = await ethereum.deployRaw("snekCoin0_0_1", abis.snekCoin0_0_1, []);
     let snekCoin0_0_1Receipt = await web3.eth.getTransactionReceipt(snekCoin0_0_1Txhash);
+    console.log("deployed snekCoin0_0_1");
+    console.log("saving...");
+    let nonce = await web3.eth.getTransactionCount(owner.pubkey);
+    console.log(nonce);
     await utils.save(
       new models.instance.contract({
+        nonce: nonce,
         name: "snekCoin0_0_1",
         owner: req.user.name,
         address: snekCoin0_0_1Receipt.contractAddress,
@@ -312,8 +317,8 @@ exports.createSnekTokenRoute = async(req, res, next) => {
         bytecode: abis.snekCoin0_0_1.bytecode,
       })
     );
-
-    let dispatcherStorageDepl = await ethereum.deploy("dispatcherStorage", abis.dispatcherStorage, [snekCoin0_0_1Receipt.contractAddress], owner.pubkey);
+    console.log("OK");
+    //let dispatcherStorageDepl = await ethereum.deploy("dispatcherStorage", abis.dispatcherStorage, [snekCoin0_0_1Receipt.contractAddress], owner.pubkey);
     let dispatcherStorageTxhash = await ethereum.deployRaw("dispatcherStorage", abis.dispatcherStorage, [snekCoin0_0_1Receipt.contractAddress]);
     let dispatcherStorageReceipt = await web3.eth.getTransactionReceipt(dispatcherStorageTxhash);
     await utils.save(
