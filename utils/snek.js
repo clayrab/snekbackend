@@ -21,13 +21,27 @@ exports.mine = async(user, howMany) => {
       name: config.owner + "runtime",
       randomSecret: config.ownerSalt,
     };
+
+
+
+
     let snekContract = await ethereum.getContract("snekCoinToken");
     let nonce = await snekContract.methods.getUserNonce(user.pubkey).call();
      //retData.balance = await dgtSubContract.methods.balanceOf(req.user.pubkey).call(function(error, result){
+
+
+    console.log(nonce)
     let approvalSig = await ethereum.sign(ownerPubkey, nonce, minableAmount, user.pubkey);
+    console.log(approvalSig)
+
+
+
     let miningPrice = await snekContract.methods.getMiningPrice().call();
+    console.log(miningPrice)
+    console.log("mine")
     let gasPrice = await web3.eth.getGasPrice();
     let method = snekContract.methods.mine(approvalSig[0], approvalSig[1], approvalSig[2], approvalSig[3]);
+    console.log("mine")
     let options = {
       from: user.pubkey,
       gasPrice: gasPrice,
@@ -44,7 +58,7 @@ exports.mine = async(user, howMany) => {
     // "The estimation can differ from the real cost, the state of the smart
     // contract can change. Adding 10k seems to be sufficient.
     options.gas = gasEst + 10000;
-    let receipt = await ethereum.sendContractCall(owner, method, options);
+    let receipt = await ethereum.sendContractCall(owner, method, options, "onSent");
     return receipt;
   } else {
     throw "Cannot approve mine";
@@ -91,14 +105,12 @@ exports.mineWithSnek = async(user, howMany) => {
     throw "Cannot approve mine";
   }
 }
-exports.transfer = async(user, to, amount) => {
-  // let snekContract = ethereum.getContract("snekCoinToken");
-  // let receipt = await ethereum.sendContractCall(
-  //   admin,
-  //   snekContract.methods.transfer(to, howMany, user.pubkey),
-  //   { from: user.pubkey, gas: 21000,}
-  // );
-  // return receipt;
+exports.transferSnek = async(user, to, howMany) => {
+  let snekContract = ethereum.getContract("snekCoinToken");
+  let options = { from: user.pubkey, gas: 21000,};
+  let method = snekContract.methods.transfer(to, howMany, user.pubkey);
+  let txhash = await ethereum.sendContractCall(admin, method, options, "onSent");
+  return txhash;
 }
 exports.getMiningPrice = async(user) => {
   let snekContract = ethereum.getContract("snekCoinToken");
@@ -122,7 +134,7 @@ exports.getBalance = async(user) => {
   let snekContract = await ethereum.getContract("snekCoinToken");
   return await snekContract.methods.balanceOf(user.pubkey).call(function(error, result){
     if(error) {
-      console.log(error);
+      //console.log(error);
       throw error;
     }
     return result;
@@ -180,11 +192,12 @@ exports.setRoot = async() => {
   let receipt = await ethereum.sendContractCall(
     owner,
     snekBackContract.methods.setRoot(snekContract.options.address),
-     {
+    {
       from: pubkey,
       gas: 3000000,
       gasPrice: 20000000000,
-    }
+    },
+    "onSent"
   );
   return receipt;
 }

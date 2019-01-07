@@ -35,7 +35,7 @@ exports.keyCacheGet = async(key) => {
       if(err){
         reject("Error: " + err);
       } else if(!value){
-        reject("Error finding key.");
+        reject("Error finding key: " + key);
       } else {
         resolve(value);
       }

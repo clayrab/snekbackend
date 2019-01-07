@@ -16,6 +16,10 @@ const config = require("./utils/config.js");
 //         type: "set",
 //         typeDef: "<varchar>"
 //     }
+// let port = 9042;
+// let host = '127.0.0.1';
+// let keyspace = 'sc';
+
 let port = 9042;
 let host = '127.0.0.1';
 let keyspace = 'sc';

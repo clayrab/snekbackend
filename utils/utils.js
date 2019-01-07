@@ -44,6 +44,19 @@ exports.save = async(model) => {
 //   }).catch(err => {throw err});
 // }
 
+// exports.find = async(model, queryMap) => {
+//   return await new Promise((resolve, reject) => {
+//     model.find(queryMap, function (err, retObj) {
+//       if(err){
+//         resolve(null);
+//       }
+//       if(!retObj){
+//         resolve(null);
+//       }
+//       resolve(retObj);
+//     });
+//   }).catch(err => {throw err});
+// }
 exports.find = async(model, queryMap) => {
   return await new Promise((resolve, reject) => {
     model.findOne(queryMap, function (err, retObj) {

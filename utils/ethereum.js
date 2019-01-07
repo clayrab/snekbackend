@@ -8,7 +8,10 @@ const ethereumjstx = require('ethereumjs-tx');
 
 exports.checkRootBlock =  async() => {
   let rootBlock = await utils.find(models.instance.block, {number: config.rootBlockNumber});
-  if(!rootBlock) {
+  if(rootBlock) {
+    console.log("rootBlock OK")
+  } else {
+    console.log("Inserting root block: " + config.rootBlockNumber);
     let block = await web3.eth.getBlock(config.rootBlockNumber);
     let newBlock = new models.instance.block({
       number: block.number,
@@ -16,6 +19,18 @@ exports.checkRootBlock =  async() => {
       timesReorged: 0,
     });
     await utils.save(newBlock);
+  }
+}
+
+exports.paritySyncStatus = async() => {
+  try {
+    let block = await web3.eth.getBlock(config.rootBlockNumber);
+    if(!block){
+      return false;
+    }
+    return true;
+  } catch(err){
+    return false;
   }
 }
 
@@ -30,18 +45,22 @@ exports.subscribe = async() => {
   // });
 //  .on("error", console.error);
 }
-let syncPastEvents = async(lastKnownBlockNumber, eventType) => {
+let syncPastEvents = async(lastSyncedBlockNumber, eventType) => {
   let snekTokenContract = await exports.getContract("snekCoinToken");
   if(!snekTokenContract) {
     console.log("************************ Contracts not deployed. Please deploy!!!!! ************************")
   } else {
+    console.log("sync past events")
     await snekTokenContract.getPastEvents(eventType, {
-        fromBlock: lastKnownBlockNumber + 1,
+        //fromBlock: lastSyncedBlockNumber + 1,
+        fromBlock: lastSyncedBlockNumber,
         //toBlock: lastBlockNumber,
       },
       async(error, events) => {
         if(error) {
-          console.log("error occured while synchronizing past events")
+          throw error;
+          // console.log("error occured while synchronizing past events");
+          // console.log(error)
         } else {
           console.log("events.length: "+ events.length);
           for(let i = 0; i < events.length; i++) {
@@ -79,7 +98,7 @@ let syncPastEvents = async(lastKnownBlockNumber, eventType) => {
                 throw "Event not found in userchainevent. Database consistency error.";
               }
               chainEvent.timesReorged = chainEvent.timesReorged + 1;
-              let distanceReorged = chainEvent.blocknumber - lastKnownBlockNumber;
+              let distanceReorged = chainEvent.blocknumber - lastSyncedBlockNumber;
               chainEvent.distReorged = chainEvent.distReorged + distanceReorged;
               await utils.save(chainEvent);
             }
@@ -99,46 +118,63 @@ exports.synchronize = async() => {
   console.log("syncing");
   let lastBlock = await web3.eth.getBlock('latest');
   console.log("latest block: " + lastBlock.number)
-  let block = lastBlock;
-  let lastKnownBlockNumber = lastBlock.number;//await web3.eth.getBlockNumber().then((value) => {return value;});
+  //let block = lastBlock;
   // Find the latest block we have synced with
-  console.log("searching for last known block...");
+  let lastSyncedBlockNumber = lastBlock.number;//await web3.eth.getBlockNumber().then((value) => {return value;});//
+  console.log("searching for last synced block...");
   while(true) {
-    if(lastKnownBlockNumber%1000 == 0){
-      console.log("searching... " + lastKnownBlockNumber);
+    if(lastSyncedBlockNumber%1000 == 0){
+      console.log("searching... " + lastSyncedBlockNumber);
     }
-    let previousBlock = await utils.find(models.instance.block, {number: lastKnownBlockNumber});
-    if(previousBlock) {
-      let ethBlock = await web3.eth.getBlock(lastKnownBlockNumber);
-      if(previousBlock.hashid == ethBlock.hash) {
-        console.log("found: " + previousBlock.hashid);
-        break;
+    let previousBlock = await utils.find(models.instance.block, {number: lastSyncedBlockNumber});
+    try{
+      if(previousBlock) {
+        let ethBlock = await web3.eth.getBlock(lastSyncedBlockNumber);
+        if(previousBlock.hashid == ethBlock.hash) {
+          break;
+        }
       }
+      lastSyncedBlockNumber--;
+    } catch(err){
+      console.log("could not find block lastSyncedBlockNumber: " + lastSyncedBlockNumber);
+      throw err;
     }
-    lastKnownBlockNumber--;
   }
-  console.log("writing blocks to DB... " + lastKnownBlockNumber + " to " + lastBlock.number);
-  for(let k = lastKnownBlockNumber + 1; k <= lastBlock.number; k++) {
-    let reorgedBlock = await utils.find(models.instance.block, {number: k});
-    let newBlock = await web3.eth.getBlock(k);
-    if(!reorgedBlock){
-      // new block
-      reorgedBlock = new models.instance.block({
-        number: k,
-        hashid: newBlock.hash,
-        timesReorged: 0,
-      });
-    } else {
-      // reorged block
-      reorgedBlock.timesReorged = reorgedBlock.timesReorged + 1;
-      reorgedBlock.hashid = newBlock.hash;
+
+  console.log("Syncing new blocks to DB... " + lastSyncedBlockNumber + " to " + lastBlock.number);
+  for(let k = lastSyncedBlockNumber + 1; k <= lastBlock.number; k++) {
+    if(lastSyncedBlockNumber%1000 == 0){
+      console.log("syncing... " + lastSyncedBlockNumber);
     }
-    await utils.save(reorgedBlock);
+    let reorgedBlock = await utils.find(models.instance.block, {number: k});
+    web3.eth.getBlock(k).then(async(newBlock) => {
+      if(!reorgedBlock){
+        // new block
+        reorgedBlock = new models.instance.block({
+          number: k,
+          hashid: newBlock.hash,
+          timesReorged: 0,
+        });
+      } else {
+        console.log("reorged block")
+        // reorged block
+        reorgedBlock.timesReorged = reorgedBlock.timesReorged + 1;
+        reorgedBlock.hashid = newBlock.hash;
+      }
+      await utils.save(reorgedBlock);
+    }).catch(err => {
+      console.log("could not find block: " + k);
+      throw err;
+    });
+
   }
   // More blocks might be in Cassandra still with number greater than latest block
   console.log("mark future reorged blocks in DB... ");
   let syncBlockNumber = lastBlock.number;
   while(true) {
+    if(lastSyncedBlockNumber%1000 == 0){
+      console.log("unsyncing... " + lastSyncedBlockNumber);
+    }
     syncBlockNumber++;
     let nextReorgedBlock = await utils.find(models.instance.block, {number: syncBlockNumber});
     if(!nextReorgedBlock){
@@ -150,15 +186,16 @@ exports.synchronize = async() => {
     }
   }
   // Find past events and write them to the database
-  await syncPastEvents(lastKnownBlockNumber, "Mine");
-  await syncPastEvents(lastKnownBlockNumber, "MineWithSnek");
-  await syncPastEvents(lastKnownBlockNumber, "Paid");
-  await syncPastEvents(lastKnownBlockNumber, "SetOwner");
-  await syncPastEvents(lastKnownBlockNumber, "SetRoot");
-  await syncPastEvents(lastKnownBlockNumber, "ChangeMiningPrice");
-  await syncPastEvents(lastKnownBlockNumber, "ChangeMiningSnekPrice");
+  await syncPastEvents(lastSyncedBlockNumber, "Mine");
+  await syncPastEvents(lastSyncedBlockNumber, "MineWithSnek");
+  await syncPastEvents(lastSyncedBlockNumber, "Paid");
+  await syncPastEvents(lastSyncedBlockNumber, "SetOwner");
+  await syncPastEvents(lastSyncedBlockNumber, "SetRoot");
+  await syncPastEvents(lastSyncedBlockNumber, "ChangeMiningPrice");
+  await syncPastEvents(lastSyncedBlockNumber, "ChangeMiningSnekPrice");
   console.log("****** synchronization success ******");
 }
+
 exports.sign = async(signer, nonce, amount, forUser) => {
   let ret = [];
   let data = (nonce * 2 ** 32) + amount;
@@ -167,7 +204,11 @@ exports.sign = async(signer, nonce, amount, forUser) => {
     hexData = "0" + hexData
   }
   let message = "0x1337beef" + forUser.slice(2) + hexData;
-  let sig = (await web3.eth.sign(message, signer)).slice(2);
+  console.log("sign")
+  let privateKey = await exports.getOwnerPrivKey();
+  let sig = (await web3.eth.accounts.sign(message, privateKey)).signature.slice(2);
+  console.log(sig)
+  //let sig = (await web3.eth.sign(message, signer)).slice(2);
   let r = "0x" + sig.slice(0, 64);
   let s = "0x" + sig.slice(64, 128);
   console.log("sig: " + sig)
@@ -198,7 +239,8 @@ exports.estimateGas = async(user, method, options) => {
     throw err
   });
 }
-exports.sendContractCall = async(user, method, options) => {
+
+exports.sendContractCall = async(user, method, options, resolveTime = "onMined") => {
   return await new Promise(async(resolve, reject) => {
     exports.makeAcctFromCache(user.name, user.randomSecret).then((acct) => {
       web3.eth.accounts.wallet.add(acct);
@@ -206,8 +248,13 @@ exports.sendContractCall = async(user, method, options) => {
       }).on('error', function(error){
         reject(error);
       }).on('transactionHash', function(transactionHash){
+        if(resolveTime == "onSent") {
+          resolve(transactionHash);
+        }
       }).on('receipt', function(receipt){
-        resolve(receipt);
+        if(resolveTime == "onMined") {
+          resolve(receipt);
+        }
       }).on('confirmation', function(confirmationNumber, receipt){
       }).then(function(newContractInstance){
       });
@@ -219,6 +266,7 @@ exports.sendContractCall = async(user, method, options) => {
     throw err
   });
 }
+
 exports.getContract = async(name) => {
   //if (!snekContract) {
   let cassandraContract = await utils.find(models.instance.contract, {name: name});
@@ -304,30 +352,29 @@ let sendRaw = async(rawTx, privKey) => {
     web3.eth.sendSignedTransaction('0x' + serializedTx, function(err, result) {
       if(err) {
         reject(err);
-      } else {
-        console.log("else")
-        console.log(result)
-        resolve(result);
+      // } else {
+      //   resolve(result);
       }
     })
     .on('transactionHash', function (hash) {
-      console.log("transactionHash")
-      console.log(hash)
-      resolve(hash);
+      console.log("sendRaw transactionHash: " + hash);
+      //resolve(hash);
     })
-    // .on('receipt', function (receipt) {
-    // console.log("receipt: " + receipt)
-    // })
-    // .on('confirmation', function (confirmationNumber, receipt) {
-    // console.log("conf: " + confirmationNumber, receipt)
-    // })
+    .on('receipt', function (receipt) {
+      console.log("sendRaw receipt: " + receipt);
+      console.log("sendRaw receipt.contractAddress: " + receipt.contractAddress);
+      resolve(receipt);
+    })
+    .on('confirmation', function (confirmationNumber, receipt) {
+      // console.log("sendRaw conf: " + confirmationNumber + " : " + receipt);
+    })
     .on('error', (error) => {
       reject(error);
     });
   }).catch(err => {throw err});
 }
 
-exports.deployRaw = async(contractName, abi, args) => {
+exports.deployRaw = async(contractName, abi, args, nonceDELETEME) => {
   return await new Promise((resolve, reject) => {
     utils.mustNotFind(models.instance.contract, {name: contractName}).then(() => {
       exports.makeAcctFromCache(config.owner+"runtime", config.ownerSalt).then((acct) => {
@@ -341,15 +388,13 @@ exports.deployRaw = async(contractName, abi, args) => {
         web3.eth.getTransactionCount(acct.address).then((nonce) => {
           var rawTx = {
             nonce: web3.utils.toHex(nonce),
-            gasLimit: web3.utils.toHex(4000000),
-            gasPrice: web3.utils.toHex(1000000000),
+            gasLimit: web3.utils.toHex(4400000),
+            gasPrice: web3.utils.toHex(2000000000),
             data: deployableBytecode,
             from: web3.utils.toHex(acct.address),
             chainId: web3.utils.toHex(config.chaidId),
           };
           sendRaw(rawTx, privKey.slice(2)).then((hash) => {
-            console.log("sendraw hash");
-            console.log(hash);
             resolve(hash);
           }).catch(err => {throw err});
         }).catch(err => {throw err});
@@ -397,7 +442,7 @@ exports.deploy = async(contractName, abi, args, from) => {
 exports.configureOwnerCache = async() => {
   let usermap = await utils.find(models.instance.usermap, {name: config.owner});
   if(!usermap) {
-    console.log("****** NO OWNER FOUND. PLEASE CREATE OWNER. ******");
+    console.log("****** NO OWNER FOUND IN USERMAP. PLEASE CREATE OWNER. ******");
   } else {
     let user = await utils.find(models.instance.user, {pubkey: usermap.pubkey});
     if(!user){
@@ -407,6 +452,25 @@ exports.configureOwnerCache = async() => {
       let runtimeKeyCrypt  = crypt.encrypt(privKey, config.owner+"runtime" + config.ownerSalt + config.aesSalt);
       await keyCache.keyCacheSet(config.owner + "runtime", runtimeKeyCrypt);
       await keyCache.keyCacheSet(config.owner + "runtimepubkey", user.pubkey);
+      console.log("****** config owner key cache success ******");
+    }
+  }
+}
+exports.getOwnerPrivKey = async() => {
+  let usermap = await utils.find(models.instance.usermap, {name: config.owner});
+  if(!usermap) {
+    console.log("****** NO OWNER FOUND IN USERMAP. PLEASE CREATE OWNER. ******");
+  } else {
+    let user = await utils.find(models.instance.user, {pubkey: usermap.pubkey});
+    if(!user){
+      console.log("****** NO OWNER FOUND. PLEASE CREATE OWNER. ******");
+    } else {
+      // let privKey = crypt.decrypt(user.keycrypt, config.owner + config.ownerSalt + config.aesSalt);
+      // let runtimeKeyCrypt  = crypt.encrypt(privKey, config.owner+"runtime" + config.ownerSalt + config.aesSalt);
+      let runtimeKeyCrypt = await keyCache.keyCacheGet(config.owner + "runtime");
+      let privKey = crypt.decrypt(runtimeKeyCrypt, config.owner+"runtime" + config.ownerSalt + config.aesSalt);
+      return privKey;
+      //await keyCache.keyCacheSet(config.owner + "runtimepubkey", user.pubkey);
       console.log("****** config owner key cache success ******");
     }
   }

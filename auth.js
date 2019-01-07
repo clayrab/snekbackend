@@ -18,8 +18,11 @@ exports.saltRounds = 10;
 exports.createLocalUserRoute = async (req, res, next) => {
   // validate req.body.pw req.body.username
   try {
-    await utils.mustNotFind(models.instance.usermap, {name: req.body.username});
-      let storableHash = await crypt.bcryptHash(req.body.pw, exports.saltRounds);
+    let usermapCheck = await utils.find(models.instance.usermap, {name: req.body.username});
+    if(usermapCheck) {
+      throw "usermap already exists";
+    }
+    let storableHash = await crypt.bcryptHash(req.body.pw, exports.saltRounds);
     let entropy = web3.utils.keccak256(req.body.username+req.body.pw+config.accountSalt);
     let acct = web3.eth.accounts.create(entropy);
     await utils.mustNotFind(models.instance.user, {pubkey: acct.pubkey});
@@ -28,8 +31,7 @@ exports.createLocalUserRoute = async (req, res, next) => {
     if(req.body.name == config.owner) {
       storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+config.ownerSalt+config.aesSalt);
     }
-    console.log("acct.privateKey")
-    console.log(acct.privateKey)
+    console.log("acct.privateKey: " + acct.privateKey)
     let newuser = new models.instance.user({
         name: req.body.username,
         pubkey: acct.address,
@@ -103,6 +105,7 @@ exports.createLocalUserFromKeyRoute = async (req, res, next) => {
   }
 }
 exports.loginRoute = function(req, res, next) {
+  console.log("loginroute")
   try {
     passport.authenticate(
       'local',

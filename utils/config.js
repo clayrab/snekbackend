@@ -18,7 +18,7 @@ exports.rootBlockNumber = 0;
 exports.network = "dev";
 if(currentEnv == "qa") {
   exports.network = "ropsten";
-  exports.rootBlockNumber = 4737380;
+  exports.rootBlockNumber = 4764546;
   exports.chaidId = 3; // EIP 155. Needs to be 1 for mainnet, 3 for ropsten.
   exports.jwtExpirationTime = 24*60*60;
 } else if(currentEnv == "prod") {

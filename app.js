@@ -19,7 +19,7 @@ const web3 = require("./utils/web3Instance.js").web3;
 let app = express();
 app.disable('x-powered-by')
 // https://expressjs.com/en/advanced/best-practice-security.html
-
+console.log("start app")
 app.use(passport.initialize());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
@@ -44,18 +44,18 @@ app.post('/sendEth', passport.authenticate('jwt', { session: false }), snekRoute
 app.get('/getUser', passport.authenticate('jwt', { session: false }), snekRoutes.getUserRoute);
 app.get('/makeFakeGames', passport.authenticate('jwt', { session: false }), snekRoutes.makeFakeGames);
 app.get('/getGames', passport.authenticate('jwt', { session: false }), snekRoutes.getGames);
+app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoutes.getBlockRoute);
 
-
-app.post('/sendtokens',
-  passport.authenticate('jwt', { session: false }),
-  async(req, res) => {
-    var retData = {};
-    var contract = new web3.eth.Contract(rewardTokenABI.abi);
-    var receipt = await contract.methods.transfer(req.body.to, req.body.amount).send({from: req.user.pubkey});
-    retData.txHash = receipt.transactionHash;
-    utils.ok200(retData ,res);
-  }
-);
+// app.post('/sendtokens',
+//   passport.authenticate('jwt', { session: false }),
+//   async(req, res) => {
+//     var retData = {};
+//     var contract = new web3.eth.Contract(rewardTokenABI.abi);
+//     var receipt = await contract.methods.transfer(req.body.to, req.body.amount).send({from: req.user.pubkey});
+//     retData.txHash = receipt.transactionHash;
+//     utils.ok200(retData ,res);
+//   }
+// );
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -68,7 +68,6 @@ app.use(function(req, res, next) {
 app.use(function(err, req, res, next) {
   // TypeError: Cannot read property 'fromRed' of null
   // => password for decryption was wrong and privateKeyToAccount(privKey) is throwing this
-  //
   //
   console.log("*********************************** express error handler middleware ***********************************");
   console.log("*********************************** BEGIN ERROR ***********************************");
@@ -85,20 +84,18 @@ app.use(function(err, req, res, next) {
 app.on('listening', async () => {
     // server ready to accept connections here
 });
-
+console.log("listen")
 app.listen(3001, async() => {
-  try {
-    console.log('****** Listening on port 3001! ******');
-    console.log("version.network: " + (await web3.eth.net.getId()));
     //let validDB = utils.validateModel();
     //console.log("validdb: " + validDB);
-    ethereum.checkRootBlock();
+    if(!(await ethereum.paritySyncStatus())){
+        throw "parity is not synched";
+    }
+    console.log("****** networkID: " + (await web3.eth.net.getId()) + " ******");
+    await ethereum.checkRootBlock();
     await ethereum.synchronize();
     await ethereum.subscribe();
     await ethereum.configureOwnerCache();
-  } catch(err) {
-    console.log("******************************** THIS SHOULD NEVER FIRE ON PROD ******************************** ");
-    throw err;
-  }
+    console.log('****** Listening on port 3001! ******');
 });
 module.exports = app;
