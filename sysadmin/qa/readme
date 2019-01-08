@@ -1,0 +1,4 @@
+/home/clay/.local/share/io.parity.ethereum/config.toml
+/etc/systemd/system/parity.service
+/etc/systemd/system/cassandra.service
+/etc/systemd/system/node.service

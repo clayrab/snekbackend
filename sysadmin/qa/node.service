@@ -1,0 +1,15 @@
+[Unit]
+Description=hello_env.js - making your environment variables rad
+Documentation=https://example.com
+After=network.target
+
+[Service]
+Environment=NODE_PORT=3001
+Type=simple
+User=node
+WorkingDirectory=/home/node/logLearningBackend
+ExecStart=/usr/bin/node app.js env=qa
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

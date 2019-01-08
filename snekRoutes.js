@@ -65,16 +65,10 @@ exports.setRootRoute = async (req, res, next) => {
   let receipt = await snek.setRoot();
   utils.ok200({receipt: receipt}, res);
 }
-exports.rewardHaulRoute = async (req, res, next) => {
+exports.mineGame = async (req, res, next) => {
   try {
     if(!req.body.howmany){
       throw "Must provide howmany";
-    }
-    if(!req.body.powerups){
-      throw "Must provide powerups";
-    }
-    if(!req.body.levelname){
-      throw "Must provide levelname";
     }
     let user = await utils.mustFind(models.instance.user,{pubkey: req.user.pubkey});
     let howMany = parseInt(req.body.howmany, 10);
@@ -94,7 +88,6 @@ exports.rewardHaulRoute = async (req, res, next) => {
       time: '2015-05-03 13:30:54.234',
       levelname : req.body.levelname,
       score     : howMany,
-      powerups  : powerups,
     });
     await utils.save(newGame);
     user.unredeemed = user.unredeemed + howMany;
@@ -113,70 +106,7 @@ exports.getGames = async(req, res, next) => {
   let user = await utils.find(models.instance.game,{pubkey: req.user.pubkey});
   utils.ok200(user, res);
 }
-
-
-exports.makeFakeGames = async (req, res, next) => {
-  let user = await utils.mustFind(models.instance.user,{pubkey: req.user.pubkey});
-  newGame = new models.instance.game({
-    pubkey: user.pubkey,
-    time: '2015-05-03 1:30:54.234',
-    levelname : "req.body.levelname",
-    score     : 100,
-    powerups  : 100,
-  });
-  await utils.save(newGame);
-  newGame = new models.instance.game({
-    pubkey: user.pubkey,
-    time: '2015-05-03 3:30:54.234',
-    levelname : "req.body.levelname",
-    score     : 100,
-    powerups  : 100,
-  });
-  await utils.save(newGame);
-  newGame = new models.instance.game({
-    pubkey: user.pubkey,
-    time: '2015-05-03 11:30:54.234',
-    levelname : "req.body.levelname",
-    score     : 100,
-    powerups  : 100,
-  });
-  await utils.save(newGame);
-  newGame = new models.instance.game({
-    pubkey: user.pubkey,
-    time: '2015-05-03 14:30:54.234',
-    levelname : "req.body.levelname",
-    score     : 100,
-    powerups  : 100,
-  });
-  await utils.save(newGame);
-  newGame = new models.instance.game({
-    pubkey: user.pubkey,
-    time: '2015-05-03 13:30:54.234',
-    levelname : "req.body.levelname",
-    score     : 100,
-    powerups  : 100,
-  });
-  await utils.save(newGame);
-  newGame = new models.instance.game({
-    pubkey: user.pubkey,
-    time: '2015-05-03 12:30:54.234',
-    levelname : "req.body.levelname",
-    score     : 100,
-    powerups  : 100,
-  });
-  await utils.save(newGame);
-  newGame = new models.instance.game({
-    pubkey: user.pubkey,
-    time: '2015-05-03 2:30:54.234',
-    levelname : "req.body.levelname",
-    score     : 100,
-    powerups  : 100,
-  });
-  await utils.save(newGame);
-  utils.ok200(newGame, res);
-}
-
-exports.rewardUnredeemedRoute = async (req, res, next) => {
+exports.recordScoreRoute = async (req, res, next) => {
   try {
     if(!req.body.howmany){
       throw "Must provide howmany";

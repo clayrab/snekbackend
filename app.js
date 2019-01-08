@@ -28,23 +28,27 @@ app.use(cookieParser());
 passport.use(auth.loginStrategy);
 passport.use('jwt', auth.jwtStrategy);
 
-app.post('/login', auth.loginRoute);
-app.post('/createLocalUser', auth.createLocalUserRoute);
-app.post('/createLocalUserFromKey', auth.createLocalUserFromKeyRoute);
+
+app.post('/createSnekToken', passport.authenticate('jwt', { session: false }), snekRoutes.createSnekTokenRoute);
 app.post('/setRoot', snekRoutes.setRootRoute);
 app.post('/synchronizeEvents', passport.authenticate('jwt', { session: false }), snekRoutes.synchronizeEventsRoute);
-app.post('/getEvents', snekRoutes.getEventsRoute);
+
+app.post('/login', auth.loginRoute);
+
 app.get('/getLastGas', snekRoutes.getLastGasRoute);
-app.post('/getOwner', snekRoutes.getOwnerRoute);
-app.post('/rewardHaul', passport.authenticate('jwt', { session: false }), snekRoutes.rewardHaulRoute);
-app.post('/rewardUnredeemed', passport.authenticate('jwt', { session: false }), snekRoutes.rewardUnredeemedRoute);
-app.post('/createSnekToken', passport.authenticate('jwt', { session: false }), snekRoutes.createSnekTokenRoute);
-app.post('/mine', passport.authenticate('jwt', { session: false }), snekRoutes.mineRoute);
-app.post('/sendEth', passport.authenticate('jwt', { session: false }), snekRoutes.sendEthRoute);
+app.get('/getEvents', snekRoutes.getEventsRoute);
 app.get('/getUser', passport.authenticate('jwt', { session: false }), snekRoutes.getUserRoute);
-app.get('/makeFakeGames', passport.authenticate('jwt', { session: false }), snekRoutes.makeFakeGames);
+app.get('/getOwner', snekRoutes.getOwnerRoute);
 app.get('/getGames', passport.authenticate('jwt', { session: false }), snekRoutes.getGames);
 app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoutes.getBlockRoute);
+
+app.post('/createLocalUser', auth.createLocalUserRoute);
+app.post('/createLocalUserFromKey', auth.createLocalUserFromKeyRoute);
+app.post('/mine', passport.authenticate('jwt', { session: false }), snekRoutes.mineRoute);
+//app.post('/rewardHaul', passport.authenticate('jwt', { session: false }), snekRoutes.rewardHaulRoute);
+app.post('/recordScore', passport.authenticate('jwt', { session: false }), snekRoutes.recordScoreRoute);
+app.post('/sendEth', passport.authenticate('jwt', { session: false }), snekRoutes.sendEthRoute);
+
 
 // app.post('/sendtokens',
 //   passport.authenticate('jwt', { session: false }),

@@ -193,6 +193,7 @@ exports.synchronize = async() => {
   await syncPastEvents(lastSyncedBlockNumber, "SetRoot");
   await syncPastEvents(lastSyncedBlockNumber, "ChangeMiningPrice");
   await syncPastEvents(lastSyncedBlockNumber, "ChangeMiningSnekPrice");
+  await syncPastEvents(lastSyncedBlockNumber, "Transfer");
   console.log("****** synchronization success ******");
 }
 
