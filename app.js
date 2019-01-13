@@ -59,7 +59,6 @@ app.use(cookieParser());
 passport.use(auth.loginStrategy);
 passport.use('jwt', auth.jwtStrategy);
 
-
 app.post('/createSnekToken', passport.authenticate('jwt', { session: false }), snekRoutes.createSnekTokenRoute);
 app.post('/setRoot', snekRoutes.setRootRoute);
 //app.post('/synchronizeEvents', passport.authenticate('jwt', { session: false }), snekRoutes.synchronizeEventsRoute);

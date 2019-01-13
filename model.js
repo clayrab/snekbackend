@@ -25,7 +25,7 @@ let host = '127.0.0.1';
 let keyspace = 'sc';
 if(config.currentEnv == "qa"){
   // user different port and keyspace so we don't accidentally sync to the wrong chain.
-  port = 9042;
+  port = 9043;
   host = '127.0.0.1';
   keyspace = 'scqa';
 } else if(config.currentEnv == "prod"){
