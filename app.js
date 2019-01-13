@@ -4,6 +4,7 @@ const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser'); //required for passport local strategy
 const passport = require('passport');
 const crypto = require('crypto');
+const http = require('http');
 
 const models = require('./model.js').models;
 const auth = require("./auth.js");
@@ -15,11 +16,41 @@ const crypt = require("./utils/crypt.js");
 const snek = require("./utils/snek.js");
 const keyCache = require("./utils/keyCache.js");
 const web3 = require("./utils/web3Instance.js").web3;
+const socketIo = require("socket.io");
 
 let app = express();
-app.disable('x-powered-by')
+
+let port = 3002;
+const emitSeconds = async(socket) => {
+  try {
+    var date = new Date();
+    socket.emit("FromAPI", date.getSeconds()); // Emitting a new message. It will be consumed by the client
+  } catch (error) {
+    console.error(`Error: ${error.code}`);
+  }
+};
+
+const server = http.createServer(app);
+const io = socketIo(server);
+
+server.listen(port, () => console.log(`socket open on port ${port}`));
+
+io.on("connection", (socket) => {
+
+  console.log("New client connected");
+  setInterval(() => {
+      emitSeconds(socket)
+    },
+    900
+  );
+  socket.on("disconnect", () => {
+    console.log("Client disconnected");
+  });
+});
+module.exports = app;
+
+app.disable('x-powered-by');
 // https://expressjs.com/en/advanced/best-practice-security.html
-console.log("start app")
 app.use(passport.initialize());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
@@ -31,23 +62,36 @@ passport.use('jwt', auth.jwtStrategy);
 
 app.post('/createSnekToken', passport.authenticate('jwt', { session: false }), snekRoutes.createSnekTokenRoute);
 app.post('/setRoot', snekRoutes.setRootRoute);
-app.post('/synchronizeEvents', passport.authenticate('jwt', { session: false }), snekRoutes.synchronizeEventsRoute);
+//app.post('/synchronizeEvents', passport.authenticate('jwt', { session: false }), snekRoutes.synchronizeEventsRoute);
 
 app.post('/login', auth.loginRoute);
 
 app.get('/getLastGas', snekRoutes.getLastGasRoute);
-app.get('/getEvents', snekRoutes.getEventsRoute);
-app.get('/getUser', passport.authenticate('jwt', { session: false }), snekRoutes.getUserRoute);
+app.get('/getPrices', snekRoutes.getPricesRoute);
 app.get('/getOwner', snekRoutes.getOwnerRoute);
+app.get('/getBlock', snekRoutes.getBlockRoute);
+app.get('/getUser', passport.authenticate('jwt', { session: false }), snekRoutes.getUserRoute);
 app.get('/getGames', passport.authenticate('jwt', { session: false }), snekRoutes.getGames);
 app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoutes.getBlockRoute);
+app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoutes.getBlockRoute);
+app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoutes.getBlockRoute);
+
+// MineHauled+SNK+GAS
+// GameHauled(“signed contract”)+ETH
+// LevelUnlockedSNK(“Upgrade Mining Camp”)+SNK
+// LevelUnlockedETH(“Upgrade Mining Camp”)+ETH
+// PowerupsBought+ETH
+
+//app.get('/checkCreds',  passport.authenticate('jwt', { session: false }), snekRoutes.checkCredsRoute )
+
+app.post('/paySnek', passport.authenticate('jwt', { session: false }), snekRoutes.paySnekRoute);
+app.post('/pay', passport.authenticate('jwt', { session: false }), snekRoutes.payRoute);
+app.post('/mine', passport.authenticate('jwt', { session: false }), snekRoutes.mineRoute);
+app.post('/recordScore', passport.authenticate('jwt', { session: false }), snekRoutes.recordScoreRoute);
+app.post('/sendEth', passport.authenticate('jwt', { session: false }), snekRoutes.sendEthRoute);
 
 app.post('/createLocalUser', auth.createLocalUserRoute);
 app.post('/createLocalUserFromKey', auth.createLocalUserFromKeyRoute);
-app.post('/mine', passport.authenticate('jwt', { session: false }), snekRoutes.mineRoute);
-//app.post('/rewardHaul', passport.authenticate('jwt', { session: false }), snekRoutes.rewardHaulRoute);
-app.post('/recordScore', passport.authenticate('jwt', { session: false }), snekRoutes.recordScoreRoute);
-app.post('/sendEth', passport.authenticate('jwt', { session: false }), snekRoutes.sendEthRoute);
 
 
 // app.post('/sendtokens',
@@ -90,16 +134,15 @@ app.on('listening', async () => {
 });
 console.log("listen")
 app.listen(3001, async() => {
-    //let validDB = utils.validateModel();
-    //console.log("validdb: " + validDB);
-    if(!(await ethereum.paritySyncStatus())){
-        throw "parity is not synched";
-    }
-    console.log("****** networkID: " + (await web3.eth.net.getId()) + " ******");
-    await ethereum.checkRootBlock();
-    await ethereum.synchronize();
-    await ethereum.subscribe();
-    await ethereum.configureOwnerCache();
-    console.log('****** Listening on port 3001! ******');
+  //let validDB = utils.validateModel();
+  //console.log("validdb: " + validDB);
+  if(!(await ethereum.paritySyncStatus())){
+      throw "parity is not synched";
+  }
+  console.log("****** networkID: " + (await web3.eth.net.getId()) + " ******");
+  await ethereum.checkRootBlock();
+  await ethereum.synchronize();
+  await ethereum.subscribe();
+  await ethereum.configureOwnerCache();
+  console.log('****** Listening on port 3001! ******');
 });
-module.exports = app;

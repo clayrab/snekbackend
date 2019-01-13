@@ -57,7 +57,7 @@ exports.save = async(model) => {
 //     });
 //   }).catch(err => {throw err});
 // }
-exports.find = async(model, queryMap) => {
+exports.findOne = async(model, queryMap) => {
   return await new Promise((resolve, reject) => {
     model.findOne(queryMap, function (err, retObj) {
       if(err){
@@ -70,10 +70,11 @@ exports.find = async(model, queryMap) => {
     });
   }).catch(err => {throw err});
 }
+exports.find = exports.findOne;
 
 exports.findAll = async(model, queryMap) => {
   return await new Promise((resolve, reject) => {
-    model.findAll(queryMap, function (err, retObj) {
+    model.find(queryMap, function (err, retObj) {
       if(err){
         reject(err);
       }

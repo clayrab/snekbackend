@@ -21,45 +21,26 @@ exports.mine = async(user, howMany) => {
       name: config.owner + "runtime",
       randomSecret: config.ownerSalt,
     };
-
-
-
-
     let snekContract = await ethereum.getContract("snekCoinToken");
     let nonce = await snekContract.methods.getUserNonce(user.pubkey).call();
      //retData.balance = await dgtSubContract.methods.balanceOf(req.user.pubkey).call(function(error, result){
-
-
-    console.log(nonce)
     let approvalSig = await ethereum.sign(ownerPubkey, nonce, minableAmount, user.pubkey);
-    console.log(approvalSig)
-
-
-
     let miningPrice = await snekContract.methods.getMiningPrice().call();
-    console.log(miningPrice)
-    console.log("mine")
     let gasPrice = await web3.eth.getGasPrice();
     let method = snekContract.methods.mine(approvalSig[0], approvalSig[1], approvalSig[2], approvalSig[3]);
-    console.log("mine")
     let options = {
       from: user.pubkey,
       gasPrice: gasPrice,
       value: miningPrice,
     };
-
-    console.log("nonce: " + nonce);
-    console.log("approvalSig: " + approvalSig);
-    console.log("gasPrice: " + gasPrice);
-    console.log("miningPrice: " + miningPrice);
     console.log("get gas est...");
     let gasEst = await ethereum.estimateGas(owner, method, options);
     console.log("gasEst: " + gasEst);
     // "The estimation can differ from the real cost, the state of the smart
     // contract can change. Adding 10k seems to be sufficient.
     options.gas = gasEst + 10000;
-    let receipt = await ethereum.sendContractCall(owner, method, options, "onSent");
-    return receipt;
+    let txhash = await ethereum.sendContractCall(owner, method, options, "onSent");
+    return txhash;
   } else {
     throw "Cannot approve mine";
   }
@@ -88,19 +69,14 @@ exports.mineWithSnek = async(user, howMany) => {
       from: user.pubkey,
       gasPrice: gasPrice,
     };
-    console.log("minewithsnek");
-    console.log("nonce: " + nonce);
-    console.log("approvalSig: " + approvalSig);
-    console.log("gasPrice: " + gasPrice);
-    console.log("miningPrice: " + miningPrice);
     console.log("get gas est...");
     let gasEst = await ethereum.estimateGas(owner, method, options);
     console.log("gasEst: " + gasEst);
     // "The estimation can differ from the real cost, the state of the smart
     // contract can change. Adding 10k seems to be sufficient.
     options.gas = gasEst + 10000;
-    let receipt = await ethereum.sendContractCall(owner, method, options);
-    return receipt;
+    let txhash = await ethereum.sendContractCall(owner, method, options, "onSent");
+    return txhash;
   } else {
     throw "Cannot approve mine";
   }

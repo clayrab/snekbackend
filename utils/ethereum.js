@@ -249,6 +249,8 @@ exports.sendContractCall = async(user, method, options, resolveTime = "onMined")
       }).on('error', function(error){
         reject(error);
       }).on('transactionHash', function(transactionHash){
+        console.log("on transactionHash");
+        console.log("resolveTime: " + resolveTime);
         if(resolveTime == "onSent") {
           resolve(transactionHash);
         }

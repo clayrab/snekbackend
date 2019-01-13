@@ -16,54 +16,52 @@ let abis = {
   snekCoin0_0_1: require('./eth/abi/SnekCoin0_0_1.json'),
 }
 
-exports.synchronizeEventsRoute = async (req, res, next) => {
-  if(req.user.name == config.owner){
-    snek.synchronizeEvents(req.user);
-    utils.ok200({status: "done"}, res);
-  } else {
-    utils.error401Unauthorized(res);
+
+exports.payRoute = async (req, res, next) => {
+  utils.ok200({status: "OK"}, res);
+}
+exports.paySnekRoute = async (req, res, next) => {
+  utils.ok200({status: "OK"}, res);
+}
+exports.recordScoreRoute = async (req, res, next) => {
+  try {
+    if(!req.body.howmany){
+      throw "Must provide howmany";
+    }
+    if(!req.body.levelname){
+      throw "Must provide levelname";
+    }
+    let howMany = parseInt(req.body.howmany, 10);
+    //let usermap = await utils.mustFind(models.instance.usermap,{name: req.user.name});
+    let user = await utils.mustFind(models.instance.user, {pubkey: req.user.pubkey});
+
+    if(user.haul >= user.mineMax) {
+      throw "Cannot haul any more";
+    }
+    if(howMany > config.gameMax || howMany < 0) {
+      //TODO LOG EVENT
+      throw "Howmany must be between 0 and " + config.gameMax;
+    }
+    user.unredeemed = user.unredeemed + howMany;
+    if(user.haul + howMany > user.mineMax) {
+      howMany = user.mineMax - user.haul;
+    }
+    user.haul = user.haul + howMany;
+    await utils.save(user);
+
+    let timestamp = new Date().toISOString();
+    let newGame = new models.instance.game({
+      pubkey: user.pubkey,
+      time: timestamp,
+      levelname : req.body.levelname,
+      score     : howMany,
+    });
+    await utils.save(newGame);
+
+    utils.ok200({status : "OK", score: howMany, user: user}, res);
+  } catch(err) {
+    next(err);
   }
-}
-exports.getLastGasRoute = async (req, res, next) => {
-  let lastBlock = await web3.eth.getBlock('latest');
-  utils.ok200({lastBlock: lastBlock}, res);
-}
-exports.getEventsRoute = async (req, res, next) => {
-  // let snekTokenContract = await ethereum.getContract("snekCoinToken");
-  // let events = snekTokenContract.events.allEvents({fromBlock: 0, toBlock: 'latest'});
-  // console.log(events);
-
-  // snekTokenContract.getPastEvents('ApprovedMine', {
-  //     //filter: {myIndexedParam: [20,23], myOtherIndexedParam:'0x123456789...'}, // Using an array means OR: e.g. 20 or 23
-  //     fromBlock: 0,
-  //     toBlock: 'latest'
-  //   },
-  //   function(error, events){
-  //     // console.log("error");
-  //     // console.log(error);
-  //     // console.log(events);
-  //     for(let i = 0; i < events.length; i++) {
-  //       console.log(events[i].event)
-  //     }
-  //   }
-  // )
-  utils.ok200({}, res);
-}
-
-exports.getOwnerRoute = async (req, res, next) => {
-  //let snekContract = ethereum.getContract("snekCoinToken");
-  let owner = await snek.getOwner(req.user);
-  let snekBal = await snek.getTotalSupply();
-  let root = await snek.getRoot();
-  let sender = await snek.getSender();
-  keyCache.keyCacheGet(config.owner + "runtimepubkey").then((value) =>{
-    utils.ok200({sender: sender, root: root, configowner: value, owner: owner}, res);
-  });
-}
-
-exports.setRootRoute = async (req, res, next) => {
-  let receipt = await snek.setRoot();
-  utils.ok200({receipt: receipt}, res);
 }
 exports.mineGame = async (req, res, next) => {
   try {
@@ -83,13 +81,7 @@ exports.mineGame = async (req, res, next) => {
     //   howMany = user.mineMax - user.haul;
     // }
 
-    let newGame = new models.instance.game({
-      pubkey: user.pubkey,
-      time: '2015-05-03 13:30:54.234',
-      levelname : req.body.levelname,
-      score     : howMany,
-    });
-    await utils.save(newGame);
+
     user.unredeemed = user.unredeemed + howMany;
     user.haul = user.haul + howMany;
     user.totalhaul = user.totalhaul + howMany;
@@ -100,39 +92,40 @@ exports.mineGame = async (req, res, next) => {
     next(err);
   }
 }
+
+exports.getLastGasRoute = async (req, res, next) => {
+  let lastBlock = await web3.eth.getBlock('latest');
+  utils.ok200({lastBlock: lastBlock}, res);
+}
+exports.getPricesRoute = async (req, res, next) => {
+  console.log("getPricesRoute")
+  let ret = {};
+  let snekContract = await ethereum.getContract("snekCoinToken");
+  ret.miningPrice = await snekContract.methods.getMiningPrice().call();
+  utils.ok200(ret, res);
+}
+
+exports.getOwnerRoute = async (req, res, next) => {
+  let snekContract = ethereum.getContract("snekCoinToken");
+  let owner = await snekContract.getOwner(req.user);
+  let snekBal = await snekContract.getTotalSupply();
+  let root = await snekContract.getRoot();
+  let sender = await snekContract.getSender();
+  keyCache.keyCacheGet(config.owner + "runtimepubkey").then((value) =>{
+    utils.ok200({sender: sender, root: root, configowner: value, owner: owner}, res);
+  });
+}
+
+exports.setRootRoute = async (req, res, next) => {
+  let receipt = await snek.setRoot();
+  utils.ok200({receipt: receipt}, res);
+}
+
 exports.getGames = async(req, res, next) => {
   //0x627306090abaB3A6e1400e9345bC60c78a8BEf57
-
-  let user = await utils.find(models.instance.game,{pubkey: req.user.pubkey});
-  utils.ok200(user, res);
-}
-exports.recordScoreRoute = async (req, res, next) => {
-  try {
-    if(!req.body.howmany){
-      throw "Must provide howmany";
-    }
-    //let usermap = await utils.mustFind(models.instance.usermap,{name: req.user.name});
-    let user = await utils.mustFind(models.instance.user,{pubkey: req.user.pubkey});
-
-    //approveMine
-    let howMany = parseInt(req.body.howmany, 10);
-    if(user.haul >= user.mineMax) {
-      throw "Cannot haul any more";
-    }
-    if(howMany > config.gameMax || howMany < 0) {
-      throw "Howmany must be between 0 and 100";
-    }
-    if(user.haul + howMany > user.mineMax) {
-      howMany = user.mineMax - user.haul;
-    }
-    user.unredeemed = user.unredeemed + howMany;
-    user.haul = user.haul + howMany;
-    user.haul = user.haul + howMany;
-    await utils.save(user);
-    utils.ok200(user, res);;
-  } catch(err) {
-    next(err);
-  }
+  //let user = await utils.find(models.instance.game,{pubkey: req.user.pubkey});
+  let games = await utils.findAll(models.instance.game, {pubkey: req.user.pubkey});
+  utils.ok200({games: games}, res);
 }
 exports.freeMineRoute = async (req, res, next) => {
   try {
@@ -155,8 +148,8 @@ exports.mineRoute = async (req, res, next) => {
       throw "Must provide howmany";
     }
     let howMany = parseInt(req.body.howmany, 10);
-    let receipt = await snek.mine(req.user, howMany);
-    utils.ok200(receipt, res);
+    let txhash = await snek.mine(req.user, howMany);
+    utils.ok200({txhash: txhash}, res);
   }
   catch(err) {
     next(err);
@@ -181,6 +174,7 @@ exports.sendSnekRoute =  async (req, res, next) => {
   }
 }
 exports.getUserRoute = async (req, res, next) => {
+  console.log("getuser");
   try {
     let snekContract = await ethereum.getContract("snekCoinToken");
     let snekBal = await snek.getBalance(req.user);
