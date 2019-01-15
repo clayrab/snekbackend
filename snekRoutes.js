@@ -28,10 +28,11 @@ exports.recordScoreRoute = async (req, res, next) => {
     if(!req.body.howmany){
       throw "Must provide howmany";
     }
-    if(!req.body.levelname){
-      throw "Must provide levelname";
+    if(!req.body.level){
+      throw "Must provide level";
     }
     let howMany = parseInt(req.body.howmany, 10);
+    let level = parseInt(req.body.level, 10);
     //let usermap = await utils.mustFind(models.instance.usermap,{name: req.user.name});
     let user = await utils.mustFind(models.instance.user, {pubkey: req.user.pubkey});
 
@@ -53,8 +54,8 @@ exports.recordScoreRoute = async (req, res, next) => {
     let newGame = new models.instance.game({
       pubkey: user.pubkey,
       time: timestamp,
-      levelname : req.body.levelname,
-      score     : howMany,
+      level: level,
+      score: howMany,
     });
     await utils.save(newGame);
 
@@ -121,7 +122,8 @@ exports.setRootRoute = async (req, res, next) => {
   utils.ok200({receipt: receipt}, res);
 }
 
-exports.getGames = async(req, res, next) => {
+exports.getGamesRoute = async(req, res, next) => {
+  console.log("getGames *********")
   //0x627306090abaB3A6e1400e9345bC60c78a8BEf57
   //let user = await utils.find(models.instance.game,{pubkey: req.user.pubkey});
   let games = await utils.findAll(models.instance.game, {pubkey: req.user.pubkey});

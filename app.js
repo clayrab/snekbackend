@@ -70,10 +70,10 @@ app.get('/getPrices', snekRoutes.getPricesRoute);
 app.get('/getOwner', snekRoutes.getOwnerRoute);
 app.get('/getBlock', snekRoutes.getBlockRoute);
 app.get('/getUser', passport.authenticate('jwt', { session: false }), snekRoutes.getUserRoute);
-app.get('/getGames', passport.authenticate('jwt', { session: false }), snekRoutes.getGames);
+app.get('/getGames', passport.authenticate('jwt', { session: false }), snekRoutes.getGamesRoute);
 app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoutes.getBlockRoute);
-app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoutes.getBlockRoute);
-app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoutes.getBlockRoute);
+// app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoutes.getBlockRoute);
+//app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoutes.getBlockRoute);
 
 // MineHauled+SNK+GAS
 // GameHauled(“signed contract”)+ETH

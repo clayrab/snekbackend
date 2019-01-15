@@ -14,7 +14,7 @@ exports.owner = "clayrab";
 exports.jwtExpirationTime = 2*24*60*60;
 exports.chaidId = 3; // EIP 155. Needs to be 1 for mainnet, 3 for ropsten.
 exports.gameMax = 1000;
-exports.rootBlockNumber = 0;
+exports.rootBlockNumber = 4796000;
 exports.network = "dev";
 if(currentEnv == "qa") {
   exports.network = "ropsten";

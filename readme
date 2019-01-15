@@ -1,4 +1,5 @@
-truncate user; truncate usermap; truncate userchainevents; truncate chainevent; truncate block; truncate contract; truncate game; truncate usergames;
+truncate user; truncate usermap;
+truncate userchainevents; truncate chainevent; truncate block; truncate contract; truncate game; truncate usergames;
 
 --- Cassandra ---
 prod:

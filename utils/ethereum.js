@@ -143,8 +143,8 @@ exports.synchronize = async() => {
 
   console.log("Syncing new blocks to DB... " + lastSyncedBlockNumber + " to " + lastBlock.number);
   for(let k = lastSyncedBlockNumber + 1; k <= lastBlock.number; k++) {
-    if(lastSyncedBlockNumber%1000 == 0){
-      console.log("syncing... " + lastSyncedBlockNumber);
+    if(k%1000 == 0){
+      console.log("syncing... " + k);
     }
     let reorgedBlock = await utils.find(models.instance.block, {number: k});
     web3.eth.getBlock(k).then(async(newBlock) => {

@@ -23,6 +23,7 @@ const config = require("./utils/config.js");
 let port = 9042;
 let host = '127.0.0.1';
 let keyspace = 'sc';
+//let keyspace = 'sc';
 if(config.currentEnv == "qa"){
   // user different port and keyspace so we don't accidentally sync to the wrong chain.
   port = 9043;
@@ -114,7 +115,7 @@ var UserModel = models.loadSchema('game', {
     //roles     : { type: "set", typeDef: "<int>"},
     pubkey    : "varchar",
     time      : "timestamp",
-    levelname : "varchar",
+    level     : "int",
     score     : "int",
     powerups  : "int",
   },
