@@ -16,7 +16,6 @@ let abis = {
   snekCoin0_0_1: require('./eth/abi/SnekCoin0_0_1.json'),
 }
 
-
 exports.payRoute = async (req, res, next) => {
   utils.ok200({status: "OK"}, res);
 }
@@ -81,8 +80,6 @@ exports.mineGame = async (req, res, next) => {
     // if(user.haul + howMany > user.mineMax) {
     //   howMany = user.mineMax - user.haul;
     // }
-
-
     user.unredeemed = user.unredeemed + howMany;
     user.haul = user.haul + howMany;
     user.totalhaul = user.totalhaul + howMany;
@@ -93,17 +90,102 @@ exports.mineGame = async (req, res, next) => {
     next(err);
   }
 }
-
 exports.getLastGasRoute = async (req, res, next) => {
+  let lastBlock = await web3.eth.getBlock('latest');
+  utils.ok200({gasLimit: lastBlock.gasLimit}, res);
+}
+exports.getLastBlockRoute = async (req, res, next) => {
   let lastBlock = await web3.eth.getBlock('latest');
   utils.ok200({lastBlock: lastBlock}, res);
 }
-exports.getPricesRoute = async (req, res, next) => {
-  console.log("getPricesRoute")
-  let ret = {};
+
+let setPrice = async(name, value) => {
+  let bigintValue = models.datatypes.Long.fromNumber(value);
+  let price = await utils.find(models.instance.price, {name: name});
+  if(price){
+    price.value = bigintValue;
+  } else {
+    price = new models.instance.price({
+      name: name,
+      value: bigintValue,
+    });
+  }
+  await utils.save(price);
+  return price;
+}
+let setOnchainPrice = async(name, value) => {
   let snekContract = await ethereum.getContract("snekCoinToken");
-  ret.miningPrice = await snekContract.methods.getMiningPrice().call();
-  utils.ok200(ret, res);
+  let method = null;
+  if(name == "haulmine") {
+    method = snekContract.methods.changeMiningSnekPrice(value);
+  } else if(name == "haulgame") {
+    method = snekContract.methods.changeMiningPrice(value);
+  } else {
+    throw "only haulgame and haulmine prices are stored onchain"
+  }
+  let gasPrice = await web3.eth.getGasPrice();
+  let pubkey = await keyCache.keyCacheGet(config.owner + "runtimepubkey");
+  let options = {
+    from: pubkey,
+    gasPrice: gasPrice,
+  };
+  let runtimeOwner = {
+    name: config.owner + "runtime",
+    randomSecret: config.ownerSalt,
+  };
+  let gasEst = await ethereum.estimateGas(runtimeOwner, method, options);
+  options.gas = gasEst + 10000;
+  let receipt = await ethereum.sendContractCall(runtimeOwner, method, options, "onMined");
+  return receipt;
+  //return options;
+}
+let getPrice = async(name) => {
+  let price = await utils.find(models.instance.price, {name: "powerup"});
+  if(price){
+    return price.value;
+  } else {
+    return -1;
+  }
+}
+
+exports.setAllPriceRoute = async (req, res, next) => {
+  if(req.user.name != config.owner) {
+    throw "only owner can set prices";
+  }
+  await setPrice("powerup", 100);
+  await setPrice("lvlsnk", 200);
+  await setPrice("lvleth", 10000000000000000); // 0.01 ETH -- 1000000000000000000 WEI per ETH
+  await setOnchainPrice("haulgame", 1000000000000000);
+  await setOnchainPrice("haulmine", 300);
+  utils.ok200({status: "OK"}, res);
+}
+exports.setPriceRoute = async (req, res, next) => {
+  // validate is owner
+  if(req.user.name != config.owner) {
+    throw "only owner can set prices";
+  }
+  if(!req.body.name || !req.body.value){
+    throw "must supply name and value";
+  }
+  let name = req.body.name;
+  let value = parseInt(req.body.value, 10);
+  if(name == "haulmine" || name == "haulgame") {
+    setOnchainPrice(name, value);
+  } else {
+    setPrice(name, value);
+  }
+  utils.ok200({status: "OK"}, res);
+}
+exports.getPricesRoute = async (req, res, next) => {
+  let prices = {};
+  let snekContract = await ethereum.getContract("snekCoinToken");
+  prices.mineGamePrice = await snekContract.methods.getMiningPrice().call();
+  prices.mineHaulPrice = await snekContract.methods.getMiningSnekPrice().call();
+  prices.powerupPrice = (await utils.find(models.instance.price, {name: "powerup"})).value;
+  prices.lvlsnkPrice = (await utils.find(models.instance.price, {name: "lvlsnk"})).value;
+  prices.lvlethPrice = (await utils.find(models.instance.price, {name: "lvleth"})).value;
+  prices.gasPrice = await web3.eth.getGasPrice();
+  utils.ok200({prices: prices}, res);
 }
 
 exports.getOwnerRoute = async (req, res, next) => {
@@ -129,15 +211,14 @@ exports.getGamesRoute = async(req, res, next) => {
   let games = await utils.findAll(models.instance.game, {pubkey: req.user.pubkey});
   utils.ok200({games: games}, res);
 }
-exports.freeMineRoute = async (req, res, next) => {
+exports.mineWithSnekRoute = async (req, res, next) => {
   try {
     if(!req.body.howmany){
       throw "Must provide howmany";
     }
     let howMany = parseInt(req.body.howmany, 10);
-    let snekContract = ethereum.getContract("snekCoinToken");
-
-    utils.ok200({status: receipt}, res);
+    let txhash = await snek.mineWithSnek(req.user, howMany);
+    utils.ok200({txhash: txhash}, res);
   } catch(err) {
     next(err);
   }
@@ -197,11 +278,6 @@ exports.getUserRoute = async (req, res, next) => {
   } catch(err) {
     next(err);
   }
-}
-
-exports.getBlockRoute = async(req, res, next) => {
-  let ethBlock = await web3.eth.getBlock(40);
-  utils.ok200({ethBlock: ethBlock}, res);
 }
 
 exports.createSnekTokenRoute = async(req, res, next) => {

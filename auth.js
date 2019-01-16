@@ -3,7 +3,7 @@ const JwtStrategy = require('passport-jwt').Strategy;
 const ExtractJwt = require('passport-jwt').ExtractJwt;
 const passport = require('passport');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const JWT = require('jsonwebtoken');
 
 const models = require('./model.js').models;
 const utils = require("./utils/utils.js");
@@ -115,8 +115,8 @@ exports.loginRoute = function(req, res, next) {
         } else if(info){
           next("error. info: " + info);
         } else if(user){
-          let token = jwt.sign(user, config.jwtSalt, {expiresIn: config.jwtExpirationTime});
-          jwt.verify(token, config.jwtSalt, function(err, data){
+          let token = JWT.sign(user, config.jwtSalt, {expiresIn: config.jwtExpirationTime});
+          JWT.verify(token, config.jwtSalt, function(err, data){
             utils.ok200({token: token}, res);
           });
         }
@@ -141,19 +141,14 @@ exports.loginStrategy = new LocalStrategy(
         done("did not pass", false, {message: 'Incorrect password.'});
       } else {
         let privKey = crypt.decrypt(user.keycrypt, username+password+config.aesSalt);
-        console.log("login")
-        console.log(privKey)
         if(username == config.owner) {
-          // owner key must be accessible to entire app
+          // owner key must be accessible to entire app, so it is encrypted differently
           privKey = crypt.decrypt(user.keycrypt, username+config.ownerSalt+config.aesSalt);
-          console.log(privKey)
         }
         let randomSecret = await crypt.randomSecret();
         let runtimeKeyCrypt = crypt.encrypt(privKey, username+randomSecret+config.aesSalt);
         await keyCache.keyCacheSet(username, runtimeKeyCrypt);
-        //done(null, {name: user.name, pubkey: user.pubkey, randomSecret: randomSecret});
-        // TODO FIX ME. remove password!!!!
-        done(null, {name: user.name, password: password, pubkey: user.pubkey, randomSecret: randomSecret});
+        done(null, {name: user.name, pubkey: user.pubkey, randomSecret: randomSecret});
       }
     } catch(err) {
       return done(err);

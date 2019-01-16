@@ -68,10 +68,10 @@ app.post('/login', auth.loginRoute);
 app.get('/getLastGas', snekRoutes.getLastGasRoute);
 app.get('/getPrices', snekRoutes.getPricesRoute);
 app.get('/getOwner', snekRoutes.getOwnerRoute);
-app.get('/getBlock', snekRoutes.getBlockRoute);
+app.get('/getLastBlock', snekRoutes.getLastBlockRoute);
 app.get('/getUser', passport.authenticate('jwt', { session: false }), snekRoutes.getUserRoute);
 app.get('/getGames', passport.authenticate('jwt', { session: false }), snekRoutes.getGamesRoute);
-app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoutes.getBlockRoute);
+//app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoutes.getBlockRoute);
 // app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoutes.getBlockRoute);
 //app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoutes.getBlockRoute);
 
@@ -86,8 +86,13 @@ app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoute
 app.post('/paySnek', passport.authenticate('jwt', { session: false }), snekRoutes.paySnekRoute);
 app.post('/pay', passport.authenticate('jwt', { session: false }), snekRoutes.payRoute);
 app.post('/mine', passport.authenticate('jwt', { session: false }), snekRoutes.mineRoute);
+app.post('/mineWithSnek', passport.authenticate('jwt', { session: false }), snekRoutes.mineWithSnekRoute);
+
 app.post('/recordScore', passport.authenticate('jwt', { session: false }), snekRoutes.recordScoreRoute);
 app.post('/sendEth', passport.authenticate('jwt', { session: false }), snekRoutes.sendEthRoute);
+
+app.post('/setPrice', passport.authenticate('jwt', { session: false }), snekRoutes.setPriceRoute);
+app.post('/setAllPrices', passport.authenticate('jwt', { session: false }), snekRoutes.setAllPriceRoute);
 
 app.post('/createLocalUser', auth.createLocalUserRoute);
 app.post('/createLocalUserFromKey', auth.createLocalUserFromKeyRoute);

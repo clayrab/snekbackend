@@ -75,6 +75,17 @@ module.exports = {
   })
 };
 let models = module.exports.models;
+var UserModel = models.loadSchema('price', {
+  fields: {
+    //roles     : { type: "set", typeDef: "<int>"},
+    name      : "varchar",
+    value     : "bigint",
+  },
+  key:["name"],
+});
+UserModel.syncDB(function(err, result) {
+    if (err) throw err;
+});
 var UserModel = models.loadSchema('user', {
   fields: {
     //roles     : { type: "set", typeDef: "<int>"},

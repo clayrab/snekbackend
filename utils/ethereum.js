@@ -197,7 +197,7 @@ exports.synchronize = async() => {
   console.log("****** synchronization success ******");
 }
 
-exports.sign = async(signer, nonce, amount, forUser) => {
+exports.sign = async(nonce, amount, forUser) => {
   let ret = [];
   let data = (nonce * 2 ** 32) + amount;
   let hexData = web3.utils.toHex(data).slice(2);
@@ -205,17 +205,12 @@ exports.sign = async(signer, nonce, amount, forUser) => {
     hexData = "0" + hexData
   }
   let message = "0x1337beef" + forUser.slice(2) + hexData;
-  console.log("sign")
   let privateKey = await exports.getOwnerPrivKey();
   let sig = (await web3.eth.accounts.sign(message, privateKey)).signature.slice(2);
-  console.log(sig)
   //let sig = (await web3.eth.sign(message, signer)).slice(2);
   let r = "0x" + sig.slice(0, 64);
   let s = "0x" + sig.slice(64, 128);
-  console.log("sig: " + sig)
-  console.log("sig.slice(128, 130) " + sig.slice(128, 130))
   let v = web3.utils.toDecimal('0x' + sig.slice(128, 130)) + 27;
-  console.log("v: " + v);
   if(v == 54) { v = 27;}
   if(v == 55) { v = 28;}
   ret.push(message);
@@ -240,7 +235,6 @@ exports.estimateGas = async(user, method, options) => {
     throw err
   });
 }
-
 exports.sendContractCall = async(user, method, options, resolveTime = "onMined") => {
   return await new Promise(async(resolve, reject) => {
     exports.makeAcctFromCache(user.name, user.randomSecret).then((acct) => {
@@ -269,7 +263,6 @@ exports.sendContractCall = async(user, method, options, resolveTime = "onMined")
     throw err
   });
 }
-
 exports.getContract = async(name) => {
   //if (!snekContract) {
   let cassandraContract = await utils.find(models.instance.contract, {name: name});

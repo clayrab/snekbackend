@@ -11,20 +11,21 @@ exports.isFraud = async(user, howMany) => {
   return false;
 }
 exports.mine = async(user, howMany) => {
-// TODO: fraud
+  // TODO: fraud
+  console.log("mine")
   let isFraud = false;
   // TODO: get this from the database:
   let minableAmount = howMany;
   if (!isFraud) {
-    let ownerPubkey = await keyCache.keyCacheGet(config.owner + "runtimepubkey");
-    let owner = {
-      name: config.owner + "runtime",
-      randomSecret: config.ownerSalt,
-    };
+    //let ownerPubkey = await keyCache.keyCacheGet(config.owner + "runtimepubkey");
+    // let owner = {
+    //   name: config.owner + "runtime",
+    //   randomSecret: config.ownerSalt,
+    // };
     let snekContract = await ethereum.getContract("snekCoinToken");
     let nonce = await snekContract.methods.getUserNonce(user.pubkey).call();
      //retData.balance = await dgtSubContract.methods.balanceOf(req.user.pubkey).call(function(error, result){
-    let approvalSig = await ethereum.sign(ownerPubkey, nonce, minableAmount, user.pubkey);
+    let approvalSig = await ethereum.sign(nonce, minableAmount, user.pubkey);
     let miningPrice = await snekContract.methods.getMiningPrice().call();
     let gasPrice = await web3.eth.getGasPrice();
     let method = snekContract.methods.mine(approvalSig[0], approvalSig[1], approvalSig[2], approvalSig[3]);
@@ -33,13 +34,9 @@ exports.mine = async(user, howMany) => {
       gasPrice: gasPrice,
       value: miningPrice,
     };
-    console.log("get gas est...");
-    let gasEst = await ethereum.estimateGas(owner, method, options);
-    console.log("gasEst: " + gasEst);
-    // "The estimation can differ from the real cost, the state of the smart
-    // contract can change. Adding 10k seems to be sufficient.
+    let gasEst = await ethereum.estimateGas(user, method, options);
     options.gas = gasEst + 10000;
-    let txhash = await ethereum.sendContractCall(owner, method, options, "onSent");
+    let txhash = await ethereum.sendContractCall(user, method, options, "onSent");
     return txhash;
   } else {
     throw "Cannot approve mine";
@@ -48,34 +45,29 @@ exports.mine = async(user, howMany) => {
 
 exports.mineWithSnek = async(user, howMany) => {
 // TODO: fraud
+  console.log("minewithsnek")
   let isFraud = false;
   // TODO: get this from the database:
   let minableAmount = howMany;
   if (!isFraud) {
     let ownerPubkey = await keyCache.keyCacheGet(config.owner + "runtimepubkey");
-    let owner = {
-      name: config.owner + "runtime",
-      randomSecret: config.ownerSalt,
-    };
+    // let owner = {
+    //   name: config.owner + "runtime",
+    //   randomSecret: config.ownerSalt,
+    // };
     let snekContract = await ethereum.getContract("snekCoinToken");
     let nonce = await snekContract.methods.getUserNonce(user.pubkey).call();
-     //retData.balance = await dgtSubContract.methods.balanceOf(req.user.pubkey).call(function(error, result){
-    let approvalSig = await ethereum.sign(ownerPubkey, nonce, minableAmount, user.pubkey);
-    let miningPrice = await snekContract.methods.getMiningPrice().call();
+    let approvalSig = await ethereum.sign(nonce, minableAmount, user.pubkey);
+    let miningPrice = await snekContract.methods.getMiningSnekPrice().call();
     let gasPrice = await web3.eth.getGasPrice();
-    //function mineWithSnek(bytes32 signedMessage, uint8 sigV, bytes32 sigR, bytes32 sigS, uint256 payAmount)
     let method = snekContract.methods.mineWithSnek(approvalSig[0], approvalSig[1], approvalSig[2], approvalSig[3], miningPrice);
     let options = {
       from: user.pubkey,
-      gasPrice: gasPrice,
+      gasPrice: 10*gasPrice,
     };
-    console.log("get gas est...");
-    let gasEst = await ethereum.estimateGas(owner, method, options);
-    console.log("gasEst: " + gasEst);
-    // "The estimation can differ from the real cost, the state of the smart
-    // contract can change. Adding 10k seems to be sufficient.
+    let gasEst = await ethereum.estimateGas(user, method, options);
     options.gas = gasEst + 10000;
-    let txhash = await ethereum.sendContractCall(owner, method, options, "onSent");
+    let txhash = await ethereum.sendContractCall(user, method, options, "onSent");
     return txhash;
   } else {
     throw "Cannot approve mine";
