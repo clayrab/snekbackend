@@ -294,10 +294,10 @@ exports.getPrivateKeyFromCache = async(name, password) => {
     });;
   }).catch(err => {throw err});
 }
-exports.makeAcctFromCache = async(name, password) => {
+exports.makeAcctFromCache = async(name, secret) => {
   return await new Promise((resolve, reject) => {
     try {
-      exports.getPrivateKeyFromCache(name, password).then((privKey) => {
+      exports.getPrivateKeyFromCache(name, secret).then((privKey) => {
         let acct = web3.eth.accounts.privateKeyToAccount(privKey);
         resolve(acct);
       }).catch(err => {
@@ -308,31 +308,42 @@ exports.makeAcctFromCache = async(name, password) => {
     }
   }).catch(err => {throw err});
 }
-exports.sendEth = async(name, password, to, howMuch) => {
+exports.sendEth = async(user, to, howMuch, resolveTime = "onMined") => {
   return await new Promise(async(resolve, reject) => {
     try {
-      let acct = await exports.makeAcctFromCache(name, password);
-      web3.eth.accounts.wallet.add(acct);
-      web3.eth.sendTransaction({
-        from: acct.address,
-        to: to,
-        value: howMuch,
-        gas: 21000,
-      })
-      .on('error', function(error){
-        reject(error);
-      }).on('transactionHash', function(transactionHash){
-        //console.log("on transcationhash: " + transactionHash);
-      }).on('receipt', function(receipt){
-        resolve(receipt);
-      }).on('confirmation', function(confirmationNumber, receipt){
-        // fires each time tx is mined up to the 24th confirmationNumber
-        // console.log("confirmationNumber: " + confirmationNumber);
-      }).then(function(newContractInstance){
-        // console.log("newContractInstance.options.address");
-        // console.log(newContractInstance.options.address);
+      exports.makeAcctFromCache(user.name, user.randomSecret).then((acct) => {
+      //let acct = await exports.makeAcctFromCache(name, password);
+        web3.eth.accounts.wallet.add(acct);
+        web3.eth.sendTransaction({
+          from: acct.address,
+          to: to,
+          value: howMuch,
+          gas: 21000 + 10000,
+        })
+        .on('error', function(error){
+          reject(error);
+        }).on('transactionHash', function(transactionHash){
+          console.log("on transactionHash");
+          console.log("resolveTime: " + resolveTime);
+          if(resolveTime == "onSent") {
+            resolve(transactionHash);
+          }
+        }).on('receipt', function(receipt){
+          if(resolveTime == "onMined") {
+            resolve(receipt);
+          }
+        }).on('confirmation', function(confirmationNumber, receipt){
+          // fires each time tx is mined up to the 24th confirmationNumber
+          // console.log("confirmationNumber: " + confirmationNumber);
+        }).then(function(newContractInstance){
+          // console.log("newContractInstance.options.address");
+          // console.log(newContractInstance.options.address);
+        });
+        web3.eth.accounts.wallet.remove(acct);
+      }).catch(err => {
+        reject(err);
+        //throw err
       });
-      web3.eth.accounts.wallet.remove(acct);
     } catch(err) {
       reject(err);
     }
@@ -448,6 +459,9 @@ exports.configureOwnerCache = async() => {
       let runtimeKeyCrypt  = crypt.encrypt(privKey, config.owner+"runtime" + config.ownerSalt + config.aesSalt);
       await keyCache.keyCacheSet(config.owner + "runtime", runtimeKeyCrypt);
       await keyCache.keyCacheSet(config.owner + "runtimepubkey", user.pubkey);
+      console.log(config.owner + "runtimepubkey: " + user.pubkey);
+      let out = await keyCache.keyCacheGet(config.owner + "runtimepubkey");
+      console.log(out)
       console.log("****** config owner key cache success ******");
     }
   }

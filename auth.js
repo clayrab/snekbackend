@@ -31,16 +31,15 @@ exports.createLocalUserRoute = async (req, res, next) => {
     if(req.body.name == config.owner) {
       storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+config.ownerSalt+config.aesSalt);
     }
-    console.log("acct.privateKey: " + acct.privateKey)
     let newuser = new models.instance.user({
-        name: req.body.username,
-        pubkey: acct.address,
-        pwcrypt: storableHash,
-        keycrypt: storableKeyCrypt,
-        unredeemed: 0,
-        approved: 0,
-        mineMax: 1000,
-        haul: 0,
+      name: req.body.username,
+      pubkey: acct.address,
+      pwcrypt: storableHash,
+      keycrypt: storableKeyCrypt,
+      unredeemed: 0,
+      approved: 0,
+      mineMax: 1000,
+      haul: 0,
     });
     await utils.save(newuser);
     let usermap = new models.instance.usermap({
@@ -148,6 +147,7 @@ exports.loginStrategy = new LocalStrategy(
         let randomSecret = await crypt.randomSecret();
         let runtimeKeyCrypt = crypt.encrypt(privKey, username+randomSecret+config.aesSalt);
         await keyCache.keyCacheSet(username, runtimeKeyCrypt);
+        console.log("Login. Cache encrypted privkey for key: " + username)
         done(null, {name: user.name, pubkey: user.pubkey, randomSecret: randomSecret});
       }
     } catch(err) {

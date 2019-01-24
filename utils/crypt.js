@@ -50,9 +50,10 @@ exports.decrypt = function decrypt(text, password){
   dec += decipher.final('utf8');
   return dec;
 }
-exports.randomSecret = async() => {
+exports.randomSecret = async(size) => {
+  size = size || 256;
   return await new Promise((resolve, reject) => {
-    crypto.randomBytes(256, (err, buf) => {
+    crypto.randomBytes(size, (err, buf) => {
       if (err) {
         reject(err);
       } else {

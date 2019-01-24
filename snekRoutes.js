@@ -16,8 +16,162 @@ let abis = {
   snekCoin0_0_1: require('./eth/abi/SnekCoin0_0_1.json'),
 }
 
+// TransactionTypes: Buy Powerups(ETH), Buy Levels(ETH), Buy Levels(SNK), Mine mine(SNK+Gas), Mine Game(ETH)
+exports.createTransactionRoute = async (req, res, next) => {
+  if(!req.body.type){
+    utils.error500("Must provide type", res);
+  }
+  if(!req.body.amount){
+    utils.error500("Must provide amount", res);
+  }
+  let transactionKey = await crypt.randomSecret(32);
+  let txData = {
+    type: req.body.type,
+    amount: req.body.amount
+  };
+  await keyCache.transactionsCacheSet(transactionKey, txData);
+  utils.ok200({transactionKey: transactionKey, txdata: txData}, res);
+}
+
+let powerups = {
+  "slowdown": 100,
+  "shed": 100,
+  "supershed": 100,
+  "ghost": 100,
+  "pellettail": 100,
+  "superpellets": 100,
+};
+let getPowerupsPriceTotal = async(req) => {
+  let prices = await getPrices();
+  let total = 0;
+  if(req.body.slowdown) {
+    let howMany = parseInt(req.body.slowdown, 10);
+    total += howMany * prices.slowdown;
+  }
+  if(req.body.shed) {
+    let howMany = parseInt(req.body.shed, 10);
+    total += howMany * prices.shed;
+  }
+  if(req.body.supershed) {
+    let howMany = parseInt(req.body.supershed, 10);
+    total += howMany * prices.supershed;
+  }
+  if(req.body.ghost) {
+    let howMany = parseInt(req.body.ghost, 10);
+    total += howMany * prices.ghost;
+  }
+  if(req.body.pellettail) {
+    let howMany = parseInt(req.body.pellettail, 10);
+    total += howMany * prices.pellettail;
+  }
+  if(req.body.superpellets) {
+    let howMany = parseInt(req.body.superpellets, 10);
+    total += howMany * prices.superpellets;
+  }
+  return total;
+}
+let givePowerup = async(req, userPowerups, name) =>{
+  if(req.body[name]) {
+    let howMany = parseInt(req.body[name], 10);
+    if(userPowerups.powerups[name]) {
+      howMany += userPowerups.powerups[name];
+    }
+    userPowerups.powerups[name] = howMany;
+  }
+}
+let givePowerups = async(req) => {
+  let userPowerups = await utils.findOne(models.instance.userpowerups, {pubkey: req.user.pubkey});
+  if(!userPowerups){
+    console.log("make new powerups")
+    userPowerups = new models.instance.userpowerups({
+      pubkey: req.user.pubkey,
+      powerups: {},
+    });
+  }
+  if(userPowerups.powerups == null) {
+    userPowerups.powerups = {};
+  }
+  givePowerup(req, userPowerups, "slowdown");
+  givePowerup(req, userPowerups, "shed");
+  givePowerup(req, userPowerups, "supershed");
+  givePowerup(req, userPowerups, "ghost");
+  givePowerup(req, userPowerups, "pellettail");
+  givePowerup(req, userPowerups, "superpellets");
+  await utils.save(userPowerups);
+  return userPowerups;
+}
+let validateTransactionForm = async(req) => {
+  if(!req.body.txkey){
+    throw "Must provide txkey";
+  }
+  if(!req.body.type){
+    throw "Must provide type";
+  }
+  if(!req.body.amount){
+    throw "Must provide amount";
+  }
+  let txdata = await keyCache.transactionsCacheGet(req.body.txkey);
+  if(!txdata || !txdata.type || !txdata.amount) {
+    throw "Transaction not found.";
+  } else {
+    if(req.body.type != txdata.type) {
+      throw "Transaction type does not match request.";
+    } else if (req.body.amount != txdata.amount ) {
+      throw "Transaction amount does not match request.";
+    } else {
+      return txdata;
+    }
+  }
+  return null; // Should be unreachable
+}
+exports.buyPowerupsRoute = async (req, res, next) => {
+  try {
+    let txdata = await validateTransactionForm(req, res);
+    if(txdata){
+      if(txdata.type == "ETH"){
+        let contract = await utils.mustFind(models.instance.contract,{name: "snekCoinToken"});
+        let price = await getPowerupsPriceTotal(req);
+        let sentPrice = parseInt(txdata.amount, 10);
+        if(sentPrice == price) {
+          await utils.save(
+            new models.instance.purchase({
+              username: req.user.name,
+              type: txdata.type,
+              value: models.datatypes.Long.fromNumber(sentPrice),
+              details: JSON.stringify(req.body),
+            })
+          );
+          await ethereum.sendEth(req.user, contract.address, txdata.amount, "onSent");
+          let powerups = await givePowerups(req);
+          utils.ok200({powerups: powerups}, res);
+        } else if(txdata.amount > price){
+          utils.error500("Amount paid is too high.", res);
+        } else {
+          utils.error500("Amount paid is too low.", res);
+        }
+      } else {
+        utils.error500("Powerups must be paid for with ETH.", res);
+      }
+    } else {
+      utils.error500("Unknown error processing transaction request.", res);
+    }
+  } catch(err) {
+    if((err + "").startsWith("Error finding txkey")){
+      utils.error500("Error: Transaction not found.", res);
+    } else if((err + "").startsWith("Error finding key")){
+      utils.error500("Error: User not found. Please login again.", res);
+    } else{
+      utils.error500(err, res);
+    }
+  }
+}
 exports.payRoute = async (req, res, next) => {
-  utils.ok200({status: "OK"}, res);
+
+  // must find key in cache
+  // type and amount must match
+  // amount being paid must be correct
+
+
 }
 exports.paySnekRoute = async (req, res, next) => {
   utils.ok200({status: "OK"}, res);
@@ -63,33 +217,33 @@ exports.recordScoreRoute = async (req, res, next) => {
     next(err);
   }
 }
-exports.mineGame = async (req, res, next) => {
-  try {
-    if(!req.body.howmany){
-      throw "Must provide howmany";
-    }
-    let user = await utils.mustFind(models.instance.user,{pubkey: req.user.pubkey});
-    let howMany = parseInt(req.body.howmany, 10);
-    let powerups = parseInt(req.body.powerups, 10);
-    if(user.haul >= user.mineMax) {
-      throw "Cannot haul any more";
-    }
-    if(howMany > config.gameMax || howMany < 0) {
-      throw "Howmany must be between 0 and 100";
-    }
-    // if(user.haul + howMany > user.mineMax) {
-    //   howMany = user.mineMax - user.haul;
-    // }
-    user.unredeemed = user.unredeemed + howMany;
-    user.haul = user.haul + howMany;
-    user.totalhaul = user.totalhaul + howMany;
-    user.gamescount = user.gamescount + 1;
-    await utils.save(user);
-    utils.ok200(user, res);;
-  } catch(err) {
-    next(err);
-  }
-}
+// exports.mineGame = async (req, res, next) => {
+//   try {
+//     if(!req.body.howmany){
+//       throw "Must provide howmany";
+//     }
+//     let user = await utils.mustFind(models.instance.user,{pubkey: req.user.pubkey});
+//     let howMany = parseInt(req.body.howmany, 10);
+//     let powerups = parseInt(req.body.powerups, 10);
+//     if(user.haul >= user.mineMax) {
+//       throw "Cannot haul any more";
+//     }
+//     if(howMany > config.gameMax || howMany < 0) {
+//       throw "Howmany must be between 0 and 100";
+//     }
+//     // if(user.haul + howMany > user.mineMax) {
+//     //   howMany = user.mineMax - user.haul;
+//     // }
+//     user.unredeemed = user.unredeemed + howMany;
+//     user.haul = user.haul + howMany;
+//     user.totalhaul = user.totalhaul + howMany;
+//     user.gamescount = user.gamescount + 1;
+//     await utils.save(user);
+//     utils.ok200(user, res);;
+//   } catch(err) {
+//     next(err);
+//   }
+// }
 exports.getLastGasRoute = async (req, res, next) => {
   let lastBlock = await web3.eth.getBlock('latest');
   utils.ok200({gasLimit: lastBlock.gasLimit}, res);
@@ -152,11 +306,23 @@ exports.setAllPriceRoute = async (req, res, next) => {
   if(req.user.name != config.owner) {
     throw "only owner can set prices";
   }
-  await setPrice("powerup", 100);
-  await setPrice("lvlsnk", 200);
-  await setPrice("lvleth", 10000000000000000); // 0.01 ETH -- 1000000000000000000 WEI per ETH
-  await setOnchainPrice("haulgame", 1000000000000000);
-  await setOnchainPrice("haulmine", 300);
+
+  let weiPerEth = 1000000000000000000;
+  let gigaWei = 1000000000; // 1 GWei
+  let miningGasCost = 2746693; // approximate gas used to mine snek
+  let approxGasPrice = 5; //  Gas price early 2018 is ~8 Gwei
+  // Assume snek will be worth approximately the amount of gas needed to mine it
+  let pelletValue = miningGasCost * approxGasPrice * gigaWei/1000;
+  await setPrice("slowdown", 5*pelletValue);
+  await setPrice("shed", 5*pelletValue);
+  await setPrice("supershed", 5*pelletValue);
+  await setPrice("ghost", 5*pelletValue);
+  await setPrice("pellettail", 5*pelletValue);
+  await setPrice("superpellets", 5*pelletValue);
+  await setPrice("lvlsnk", 200); //SNK
+  await setPrice("lvleth", weiPerEth/100);
+  await setOnchainPrice("haulgame", weiPerEth/1000);
+  await setOnchainPrice("haulmine", 300); //SNK
   utils.ok200({status: "OK"}, res);
 }
 exports.setPriceRoute = async (req, res, next) => {
@@ -176,15 +342,24 @@ exports.setPriceRoute = async (req, res, next) => {
   }
   utils.ok200({status: "OK"}, res);
 }
-exports.getPricesRoute = async (req, res, next) => {
+let getPrices = async() => {
   let prices = {};
   let snekContract = await ethereum.getContract("snekCoinToken");
   prices.mineGamePrice = await snekContract.methods.getMiningPrice().call();
   prices.mineHaulPrice = await snekContract.methods.getMiningSnekPrice().call();
-  prices.powerupPrice = (await utils.find(models.instance.price, {name: "powerup"})).value;
+  prices.slowdown = (await utils.find(models.instance.price, {name: "slowdown"})).value;
+  prices.shed = (await utils.find(models.instance.price, {name: "shed"})).value;
+  prices.supershed = (await utils.find(models.instance.price, {name: "supershed"})).value;
+  prices.ghost = (await utils.find(models.instance.price, {name: "ghost"})).value;
+  prices.pellettail = (await utils.find(models.instance.price, {name: "pellettail"})).value;
+  prices.superpellets = (await utils.find(models.instance.price, {name: "superpellets"})).value;
   prices.lvlsnkPrice = (await utils.find(models.instance.price, {name: "lvlsnk"})).value;
   prices.lvlethPrice = (await utils.find(models.instance.price, {name: "lvleth"})).value;
   prices.gasPrice = await web3.eth.getGasPrice();
+  return prices;
+}
+exports.getPricesRoute = async (req, res, next) => {
+  let prices = await getPrices();
   utils.ok200({prices: prices}, res);
 }
 
@@ -230,6 +405,9 @@ exports.mineRoute = async (req, res, next) => {
     if(!req.body.howmany){
       throw "Must provide howmany";
     }
+    if(!req.body.price){
+      throw "Must provide price";
+    }
     let howMany = parseInt(req.body.howmany, 10);
     let txhash = await snek.mine(req.user, howMany);
     utils.ok200({txhash: txhash}, res);
@@ -238,15 +416,15 @@ exports.mineRoute = async (req, res, next) => {
     next(err);
   }
 }
-exports.sendEthRoute = async (req, res, next) => {
-  //validate req.body.to
-  try {
-    let receipt = await ethereum.sendEth(req.user, req.body.to, req.body.howmany);
-    utils.ok200(receipt, res);
-  } catch(err) {
-    next(err);
-  }
-}
+// exports.sendEthRoute = async (req, res, next) => {
+//   //validate req.body.to
+//   try {
+//     let receipt = await ethereum.sendEth(req.user, req.body.to, req.body.howmany);
+//     utils.ok200(receipt, res);
+//   } catch(err) {
+//     next(err);
+//   }
+// }
 exports.sendSnekRoute =  async (req, res, next) => {
   //validate req.body.to
   try {
@@ -388,7 +566,7 @@ exports.createSnekTokenRoute = async(req, res, next) => {
       nonce = nonce + 1;
       //let snekCoinTokenReceipt = await web3.eth.getTransactionReceipt(snekCoinTokenTxhash);
       await utils.save(
-        new models.instance.contract({
+        ng.contract({
           name: "snekCoinToken",
           owner: req.user.name,
           address: snekCoinTokenReceipt.contractAddress,

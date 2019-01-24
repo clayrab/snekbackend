@@ -10,18 +10,24 @@ exports.ok200 = function(value, res) {
   res.status(200);
   res.send(value);
 }
-exports.error500 = function(error, res) {
+// 400 Bad Request - The server cannot or will not process the request due to an
+// apparent client error (e.g., malformed request syntax)
+exports.error400 = function(error, res) {
   res.type('application/json');
-  res.status(500);
+  res.status(400);
   res.send(error);
 }
-
 exports.error401Unauthorized = function(res) {
   res.type('application/json');
   res.status(401);
   res.send("Unauthorized");
 }
-
+// 500 Internal Server Error
+exports.error500 = function(error, res) {
+  res.type('application/json');
+  res.status(500);
+  res.send(error);
+}
 exports.save = async(model) => {
   return await new Promise((resolve, reject) => {
     model.save(function(err){

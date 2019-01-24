@@ -31,22 +31,20 @@ const emitSeconds = async(socket) => {
 };
 
 const server = http.createServer(app);
-const io = socketIo(server);
-
-server.listen(port, () => console.log(`socket open on port ${port}`));
-
-io.on("connection", (socket) => {
-
-  console.log("New client connected");
-  setInterval(() => {
-      emitSeconds(socket)
-    },
-    900
-  );
-  socket.on("disconnect", () => {
-    console.log("Client disconnected");
-  });
-});
+// const io = socketIo(server);
+// server.listen(port, () => console.log(`socket open on port ${port}`));
+// io.on("connection", (socket) => {
+//
+//   console.log("New client connected");
+//   setInterval(() => {
+//       emitSeconds(socket)
+//     },
+//     900
+//   );
+//   socket.on("disconnect", () => {
+//     console.log("Client disconnected");
+//   });
+// });
 module.exports = app;
 
 app.disable('x-powered-by');
@@ -82,14 +80,17 @@ app.get('/getGames', passport.authenticate('jwt', { session: false }), snekRoute
 // PowerupsBought+ETH
 
 //app.get('/checkCreds',  passport.authenticate('jwt', { session: false }), snekRoutes.checkCredsRoute )
+app.post('/recordScore', passport.authenticate('jwt', { session: false }), snekRoutes.recordScoreRoute);
 
-app.post('/paySnek', passport.authenticate('jwt', { session: false }), snekRoutes.paySnekRoute);
-app.post('/pay', passport.authenticate('jwt', { session: false }), snekRoutes.payRoute);
+app.post('/createTransaction', passport.authenticate('jwt', { session: false }), snekRoutes.createTransactionRoute);
+app.post('/buyPowerups', passport.authenticate('jwt', { session: false }), snekRoutes.buyPowerupsRoute);
+app.post('/buyLevelsWithEth', passport.authenticate('jwt', { session: false }), snekRoutes.payRoute);
+app.post('/buyLevelsWithSnk', passport.authenticate('jwt', { session: false }), snekRoutes.payRoute);
 app.post('/mine', passport.authenticate('jwt', { session: false }), snekRoutes.mineRoute);
 app.post('/mineWithSnek', passport.authenticate('jwt', { session: false }), snekRoutes.mineWithSnekRoute);
+// app.post('/paySnek', passport.authenticate('jwt', { session: false }), snekRoutes.paySnekRoute);
+// app.post('/pay', passport.authenticate('jwt', { session: false }), snekRoutes.payRoute);
 
-app.post('/recordScore', passport.authenticate('jwt', { session: false }), snekRoutes.recordScoreRoute);
-app.post('/sendEth', passport.authenticate('jwt', { session: false }), snekRoutes.sendEthRoute);
 
 app.post('/setPrice', passport.authenticate('jwt', { session: false }), snekRoutes.setPriceRoute);
 app.post('/setAllPrices', passport.authenticate('jwt', { session: false }), snekRoutes.setAllPriceRoute);
@@ -97,7 +98,7 @@ app.post('/setAllPrices', passport.authenticate('jwt', { session: false }), snek
 app.post('/createLocalUser', auth.createLocalUserRoute);
 app.post('/createLocalUserFromKey', auth.createLocalUserFromKeyRoute);
 
-
+//app.post('/sendEth', passport.authenticate('jwt', { session: false }), snekRoutes.sendEthRoute);
 // app.post('/sendtokens',
 //   passport.authenticate('jwt', { session: false }),
 //   async(req, res) => {
@@ -136,7 +137,6 @@ app.use(function(err, req, res, next) {
 app.on('listening', async () => {
     // server ready to accept connections here
 });
-console.log("listen")
 app.listen(3001, async() => {
   //let validDB = utils.validateModel();
   //console.log("validdb: " + validDB);

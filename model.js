@@ -75,7 +75,7 @@ module.exports = {
   })
 };
 let models = module.exports.models;
-var UserModel = models.loadSchema('price', {
+let PriceModel = models.loadSchema('price', {
   fields: {
     //roles     : { type: "set", typeDef: "<int>"},
     name      : "varchar",
@@ -83,10 +83,23 @@ var UserModel = models.loadSchema('price', {
   },
   key:["name"],
 });
-UserModel.syncDB(function(err, result) {
+PriceModel.syncDB(function(err, result) {
     if (err) throw err;
 });
-var UserModel = models.loadSchema('user', {
+let PurchaseModel = models.loadSchema('purchase', {
+  fields: {
+    //roles     : { type: "set", typeDef: "<int>"},
+    username      : "varchar",
+    type          : "varchar",
+    value         : "bigint",
+    details       : "varchar",
+  },
+  key:["username", "type"],
+});
+PurchaseModel.syncDB(function(err, result) {
+    if (err) throw err;
+});
+let UserModel = models.loadSchema('user', {
   fields: {
     //roles     : { type: "set", typeDef: "<int>"},
     pubkey    : "varchar",
@@ -106,7 +119,7 @@ UserModel.syncDB(function(err, result) {
     if (err) throw err;
 });
 
-var UserModel = models.loadSchema('usergames', {
+let UserGamesModel = models.loadSchema('usergames', {
   fields: {
     //roles     : { type: "set", typeDef: "<int>"},
     pubkey    : "varchar",
@@ -117,11 +130,25 @@ var UserModel = models.loadSchema('usergames', {
   },
   key:["pubkey"],
 });
-UserModel.syncDB(function(err, result) {
+UserGamesModel.syncDB(function(err, result) {
+    if (err) throw err;
+});
+let PowerupModel = models.loadSchema('userpowerups', {
+  fields: {
+    //roles     : { type: "set", typeDef: "<int>"},
+    pubkey    : "varchar",
+    powerups   : {
+      type: "map",
+      typeDef: "<varchar, int>"
+    },
+  },
+  key:["pubkey"],
+});
+PowerupModel.syncDB(function(err, result) {
     if (err) throw err;
 });
 
-var UserModel = models.loadSchema('game', {
+let GameModel = models.loadSchema('game', {
   fields: {
     //roles     : { type: "set", typeDef: "<int>"},
     pubkey    : "varchar",
@@ -132,11 +159,11 @@ var UserModel = models.loadSchema('game', {
   },
   key:[["pubkey"], "time"],
 });
-UserModel.syncDB(function(err, result) {
+GameModel.syncDB(function(err, result) {
     if (err) throw err;
 });
 
-var UserMapModel = models.loadSchema('usermap', {
+let UserMapModel = models.loadSchema('usermap', {
   fields: {
     name      : "varchar",
     pubkey    : "varchar",
@@ -147,7 +174,7 @@ UserMapModel.syncDB(function(err, result) {
     if (err) throw err;
 });
 
-var ChainEventModel = models.loadSchema('chainevent', {
+let ChainEventModel = models.loadSchema('chainevent', {
   fields:{
     txid          : "varchar",
     userpubkey    : "varchar",
@@ -165,7 +192,7 @@ ChainEventModel.syncDB(function(err, result) {
     if (err) throw err;
 });
 
-var UserChainEventModel = models.loadSchema('userchainevents', {
+let UserChainEventModel = models.loadSchema('userchainevents', {
   fields:{
     userpubkey    : "varchar",
     chainevents   : {
@@ -180,7 +207,7 @@ UserChainEventModel.syncDB(function(err, result) {
     if (err) throw err;
 });
 
-var ContractModel = models.loadSchema('contract', {
+let ContractModel = models.loadSchema('contract', {
   fields:{
     name          : "varchar",
     owner         : "varchar",
@@ -195,7 +222,7 @@ ContractModel.syncDB(function(err, result) {
     if (err) throw err;
 });
 
-var BlockModel = models.loadSchema('block', {
+let BlockModel = models.loadSchema('block', {
   fields: {
     number          : "int",
     hashid          : "varchar",
