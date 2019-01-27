@@ -102,23 +102,26 @@ PurchaseModel.syncDB(function(err, result) {
 let UserModel = models.loadSchema('user', {
   fields: {
     //roles     : { type: "set", typeDef: "<int>"},
-    pubkey    : "varchar",
-    name      : "varchar",
-    pwcrypt   : "varchar",
-    keycrypt  : "varchar",
-    unredeemed: "int",
-    //approved  : "int",
-    mineMax   : "int",
-    haul      : "int",
-    gamecount : "int",
-    totalhaul : "int",
+    pubkey        : "varchar",
+    name          : "varchar",
+    pwcrypt       : "varchar",
+    keycrypt      : "varchar",
+    unredeemed    : "int",
+    mineMax       : "int",
+    mineUpgraded  : "boolean", //bitmask
+    purchasedGames: {
+      type: "map",
+      typeDef: "<varchar, int>"
+    },
+    haul          : "int",
+    gamecount     : "int",
+    totalhaul     : "int",
   },
   key:["pubkey"],
 });
 UserModel.syncDB(function(err, result) {
     if (err) throw err;
 });
-
 let UserGamesModel = models.loadSchema('usergames', {
   fields: {
     //roles     : { type: "set", typeDef: "<int>"},

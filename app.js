@@ -84,8 +84,8 @@ app.post('/recordScore', passport.authenticate('jwt', { session: false }), snekR
 
 app.post('/createTransaction', passport.authenticate('jwt', { session: false }), snekRoutes.createTransactionRoute);
 app.post('/buyPowerups', passport.authenticate('jwt', { session: false }), snekRoutes.buyPowerupsRoute);
-app.post('/buyLevelsWithEth', passport.authenticate('jwt', { session: false }), snekRoutes.payRoute);
-app.post('/buyLevelsWithSnk', passport.authenticate('jwt', { session: false }), snekRoutes.payRoute);
+app.post('/buyUpgradedMine', passport.authenticate('jwt', { session: false }), snekRoutes.buyUpgradedMineRoute);
+app.post('/buySuperGame', passport.authenticate('jwt', { session: false }), snekRoutes.buySuperGameRoute);
 app.post('/mine', passport.authenticate('jwt', { session: false }), snekRoutes.mineRoute);
 app.post('/mineWithSnek', passport.authenticate('jwt', { session: false }), snekRoutes.mineWithSnekRoute);
 // app.post('/paySnek', passport.authenticate('jwt', { session: false }), snekRoutes.paySnekRoute);

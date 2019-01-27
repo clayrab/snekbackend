@@ -104,7 +104,6 @@ exports.createLocalUserFromKeyRoute = async (req, res, next) => {
   }
 }
 exports.loginRoute = function(req, res, next) {
-  console.log("loginroute")
   try {
     passport.authenticate(
       'local',
@@ -147,7 +146,6 @@ exports.loginStrategy = new LocalStrategy(
         let randomSecret = await crypt.randomSecret();
         let runtimeKeyCrypt = crypt.encrypt(privKey, username+randomSecret+config.aesSalt);
         await keyCache.keyCacheSet(username, runtimeKeyCrypt);
-        console.log("Login. Cache encrypted privkey for key: " + username)
         done(null, {name: user.name, pubkey: user.pubkey, randomSecret: randomSecret});
       }
     } catch(err) {
