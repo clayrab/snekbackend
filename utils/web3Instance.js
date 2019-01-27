@@ -8,8 +8,8 @@ try{
     //192.168.1.5
     //exports.web3 = new web3(web3.givenProvider || new web3.providers.HttpProvider("http://202.182.117.196:8545")); // QA parity
   } else if(config.currentEnv == "qa"){
-    exports.web3 = new web3(web3.givenProvider || new web3.providers.HttpProvider("http://202.182.117.196:8545")); // QA parity
-    //exports.web3 = new web3(web3.givenProvider || new web3.providers.HttpProvider("http://localhost:8545")); // parity
+    //exports.web3 = new web3(web3.givenProvider || new web3.providers.HttpProvider("http://202.182.117.196:8545")); // QA parity
+    exports.web3 = new web3(web3.givenProvider || new web3.providers.HttpProvider("http://localhost:8545")); // parity
   } else if(config.currentEnv == "prod"){
     exports.web3 = new web3(web3.givenProvider || new web3.providers.HttpProvider("http://127.0.0.1:8545"));
   }
