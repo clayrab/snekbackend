@@ -6,7 +6,7 @@ const crypt = require("./crypt.js");
 const config = require("./config.js");
 const ethereumjstx = require('ethereumjs-tx');
 
-exports.checkRootBlock =  async() => {
+exports.checkRootBlock = async() => {
   let rootBlock = await utils.find(models.instance.block, {number: config.rootBlockNumber});
   if(rootBlock) {
     console.log("rootBlock OK")
@@ -21,7 +21,18 @@ exports.checkRootBlock =  async() => {
     await utils.save(newBlock);
   }
 }
-
+exports.getGasPrice = async() => {
+  let gasPrice = await web3.eth.getGasPrice();
+  if(gasPrice == 1000000000) {
+    console.log("here?")
+    let networkID = await web3.eth.net.getId();
+    console.log(networkID)
+    if(networkID == 3) { // We're on ropsten. Increase the gas price arbitrarily.
+      gasPrice = 20*gasPrice;
+    }
+  }
+  return gasPrice;
+}
 exports.paritySyncStatus = async() => {
   try {
     let block = await web3.eth.getBlock(config.rootBlockNumber);
@@ -311,6 +322,8 @@ exports.makeAcctFromCache = async(name, secret) => {
 exports.sendEth = async(user, to, howMuch, resolveTime = "onMined") => {
   return await new Promise(async(resolve, reject) => {
     try {
+      console.log("sendeth")
+      console.log(user.name)
       exports.makeAcctFromCache(user.name, user.randomSecret).then((acct) => {
       //let acct = await exports.makeAcctFromCache(name, password);
         web3.eth.accounts.wallet.add(acct);

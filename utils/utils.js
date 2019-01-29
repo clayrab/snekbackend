@@ -15,7 +15,7 @@ exports.ok200 = function(value, res) {
 exports.error400 = function(error, res) {
   res.type('application/json');
   res.status(400);
-  res.send(error);
+  res.send({"error": "" + error});
 }
 exports.error401Unauthorized = function(res) {
   res.type('application/json');
@@ -26,7 +26,7 @@ exports.error401Unauthorized = function(res) {
 exports.error500 = function(error, res) {
   res.type('application/json');
   res.status(500);
-  res.send(error);
+  res.send({"error": "" + error});
 }
 exports.save = async(model) => {
   return await new Promise((resolve, reject) => {

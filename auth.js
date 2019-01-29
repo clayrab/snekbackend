@@ -145,6 +145,7 @@ exports.loginStrategy = new LocalStrategy(
         }
         let randomSecret = await crypt.randomSecret();
         let runtimeKeyCrypt = crypt.encrypt(privKey, username+randomSecret+config.aesSalt);
+        console.log("Logged in! Setting key cache for user: " + username)
         await keyCache.keyCacheSet(username, runtimeKeyCrypt);
         done(null, {name: user.name, pubkey: user.pubkey, randomSecret: randomSecret});
       }
