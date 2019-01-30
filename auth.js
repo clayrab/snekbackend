@@ -17,29 +17,36 @@ const web3 = require("./utils/web3Instance.js").web3;
 exports.saltRounds = 10;
 exports.createLocalUserRoute = async (req, res, next) => {
   // validate req.body.pw req.body.username
+  if(!req.body.username || !req.body.pw){
+    throw "must supply username and pw";
+  }
   try {
-    let usermapCheck = await utils.find(models.instance.usermap, {name: req.body.username});
-    if(usermapCheck) {
-      throw "usermap already exists";
-    }
+    // let usermapCheck = await utils.find(models.instance.usermap, {name: req.body.username});
+    // if(usermapCheck) {
+    //   throw "usermap already exists";
+    // }
+
     let storableHash = await crypt.bcryptHash(req.body.pw, exports.saltRounds);
     let entropy = web3.utils.keccak256(req.body.username+req.body.pw+config.accountSalt);
     let acct = web3.eth.accounts.create(entropy);
-    await utils.mustNotFind(models.instance.user, {pubkey: acct.pubkey});
+    await utils.mustNotFind(models.instance.user, {pubkey: acct.address});
+    //await utils.mustNotFind(models.instance.user, {pubkey: acct.pubkey});
     //let storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+req.body.pw+config.aesSalt);
     let storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+req.body.pw+config.aesSalt);
     if(req.body.name == config.owner) {
       storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+config.ownerSalt+config.aesSalt);
     }
     let newuser = new models.instance.user({
-      name: req.body.username,
-      pubkey: acct.address,
-      pwcrypt: storableHash,
-      keycrypt: storableKeyCrypt,
-      unredeemed: 0,
-      approved: 0,
-      mineMax: 1000,
-      haul: 0,
+        name: req.body.username,
+        pubkey: acct.address,
+        pwcrypt: storableHash,
+        keycrypt: storableKeyCrypt,
+        unredeemed: 0,
+        approved: 0,
+        mineMax: 1000,
+        haul: 0,
+        gamecount: 0,
+        totalhaul: 0,
     });
     await utils.save(newuser);
     let usermap = new models.instance.usermap({
@@ -60,7 +67,10 @@ exports.createLocalUserRoute = async (req, res, next) => {
 
 exports.createLocalUserFromKeyRoute = async (req, res, next) => {
   // validate req.body.pw req.body.username req.body.key
-  // key should start with "0x"
+  // key should start with "0x" and have length
+  if(!req.body.name || !req.body.pw || !req.body.key){
+    throw "must supply name, pw, and key";
+  }
   try {
     //await utils.mustNotFind(models.instance.user,{name: req.body.username});
     let storableHash = await crypt.bcryptHash(req.body.pw, exports.saltRounds);

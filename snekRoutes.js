@@ -76,8 +76,9 @@ exports.mineWithSnekRoute = async (req, res, next) => {
           if (isFraud) {
             utils.error500("Cannot approve mine", res);
           } else {
-            let txhash = await ethereum.sendContractCall(req.user, method, options, "onSent");
             usr = await saveUserAfterMining(usr, minableAmount);
+            await clearTransaction(req);
+            let txhash = await ethereum.sendContractCall(req.user, method, options, "onSent");
             utils.ok200({
               txhash: txhash,
               user: usr,
@@ -137,8 +138,9 @@ exports.mineRoute = async (req, res, next) => {
           if (isFraud) {
             utils.error500("Cannot approve mine", res);
           } else {
-            let txhash = await ethereum.sendContractCall(req.user, method, options, "onSent");
             usr = await saveUserAfterMining(usr, minableAmount);
+            await clearTransaction(req);
+            let txhash = await ethereum.sendContractCall(req.user, method, options, "onSent");
             utils.ok200({
               txhash: txhash,
               user: usr,
@@ -295,6 +297,9 @@ let giveSuperGame = async(req) => {
   await utils.save(user);
   return user;
 }
+let clearTransaction = async(req) => {
+  await keyCache.transactionsCacheSet(req.body.txkey, null);
+}
 let validateTransactionForm = async(req) => {
   if(!req.body.txkey){
     throw "Must provide txkey";
@@ -356,13 +361,9 @@ exports.buyUpgradedMineRoute = async (req, res, next) => {
           await savePurchase(req, txdata, sentPrice);
           let contract = await utils.mustFind(models.instance.contract, {name: "snekCoinToken"});
           await ethereum.sendEth(req.user, contract.address, txdata.amount, "onSent");
-          let user = null;
-          try {
-            user = await giveUpgradedMine(req);
-            utils.ok200({user: user}, res);
-          } catch(err){
-            utils.error500(err, res);
-          }
+          await clearTransaction(req);
+          let user = await giveUpgradedMine(req);
+          utils.ok200({user: user}, res);
         } else if(sentPrice> price){
           utils.error500("Amount paid is too high.", res);
         } else {
@@ -396,6 +397,7 @@ exports.buySuperGameRoute = async (req, res, next) => {
           await savePurchase(req, txdata, sentPrice);
           let contract = await utils.mustFind(models.instance.contract, {name: "snekCoinToken"});
           await ethereum.sendEth(req.user, contract.address, txdata.amount, "onSent");
+          await clearTransaction(req);
           let user = await giveSuperGame(req);
           utils.ok200({user: user}, res);
         } else if(txdata.amount > price){
@@ -431,6 +433,7 @@ exports.buyPowerupsRoute = async (req, res, next) => {
           await savePurchase(req, txdata, sentPrice);
           let contract = await utils.mustFind(models.instance.contract,{name: "snekCoinToken"});
           await ethereum.sendEth(req.user, contract.address, txdata.amount, "onSent");
+          await clearTransaction(req);
           let powerups = await givePowerups(req);
           utils.ok200({powerups: powerups}, res);
         } else if(txdata.amount > price){
