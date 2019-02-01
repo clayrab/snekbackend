@@ -18,6 +18,7 @@ let abis = {
 
 // TransactionTypes: Buy Powerups(ETH), Buy Levels(ETH), Buy Levels(SNK), Mine mine(SNK+Gas), Mine Game(ETH)
 exports.createTransactionRoute = async (req, res, next) => {
+  console.log("createTransactionRoute");
   if(!req.body.type){
     utils.error500("Must provide type", res);
   }
@@ -36,12 +37,15 @@ let saveUserAfterMining = async(dbUser, minedAmount) => {
   dbUser.mineUpgraded = false;
   dbUser.haul = dbUser.haul - minedAmount;
   dbUser.unredeemed = dbUser.unredeemed - minedAmount;
-  if(dbUser.unredeemed > 0) {
-    dbUser.haul = dbUser.unredeemed;
-    if(dbUser.haul > dbUser.mineMax) {
-      dbUser.haul = dbUser.mineMax;
-    }
-  }
+  // We don't want to do this, but the experience is a bit strange.
+  // Keep it to test.
+  //
+  // if(dbUser.unredeemed > 0) {
+  //   dbUser.haul = dbUser.unredeemed;
+  //   if(dbUser.haul > dbUser.mineMax) {
+  //     dbUser.haul = dbUser.mineMax;
+  //   }
+  // }
   await utils.save(dbUser);
   return dbUser;
 }
@@ -458,11 +462,12 @@ exports.buyPowerupsRoute = async (req, res, next) => {
   }
 }
 exports.recordScoreRoute = async (req, res, next) => {
+  console.log("recordScoreRoute")
   try {
-    if(!req.body.howmany){
+    if(!req.body.howmany == null && typeof(req.body.howmany) == "number") {
       throw "Must provide howmany";
     }
-    if(!req.body.level){
+    if(!req.body.level == null && typeof(req.body.level) == "number") {
       throw "Must provide level";
     }
     let howMany = parseInt(req.body.howmany, 10);
@@ -489,7 +494,7 @@ exports.recordScoreRoute = async (req, res, next) => {
       score: howMany,
     });
     await utils.save(newGame);
-    utils.ok200({status : "OK", score: howMany, user: user}, res);
+    utils.ok200({status : "OK", score: howMany, user: (await getUserBalances(req, user))}, res);
   } catch(err) {
     next(err);
   }
@@ -642,23 +647,28 @@ exports.sendSnekRoute =  async (req, res, next) => {
     next(err);
   }
 }
+let getUserBalances = async(req, dbUser) => {
+  let snekContract = await ethereum.getContract("snekCoinToken");
+  let snekBal = await snek.getBalance(req.user);
+  let ethBal = await ethereum.getBalance(req.user);
+  let balances = {
+    eth: ethBal,
+    snek: snekBal,
+    pubkey: dbUser.pubkey,
+    name: dbUser.name,
+    unredeemed: dbUser.unredeemed,
+    mineMax: dbUser.mineMax,
+    haul: dbUser.haul,
+    gamecount: dbUser.gamecount,
+    totalhaul: dbUser.totalhaul,
+  };
+  return balances;
+}
 exports.getUserRoute = async (req, res, next) => {
   try {
-    let snekContract = await ethereum.getContract("snekCoinToken");
-    let snekBal = await snek.getBalance(req.user);
-    let ethBal = await ethereum.getBalance(req.user);
     let user = await utils.mustFind(models.instance.user, {pubkey: req.user.pubkey});
-    let balances = {
-      eth: ethBal,
-      snek: snekBal,
-      pubkey: user.pubkey,
-      name: user.name,
-      unredeemed: user.unredeemed,
-      mineMax: user.mineMax,
-      haul: user.haul,
-      gamecount: user.gamecount,
-      totalhaul: user.totalhaul,
-    };
+    getUserBalances(req, user);
+    let balances = await getUserBalances(req, user);
     utils.ok200(balances, res);
   } catch(err) {
     next(err);
