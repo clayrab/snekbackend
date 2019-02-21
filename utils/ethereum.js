@@ -21,6 +21,23 @@ exports.checkRootBlock = async() => {
     await utils.save(newBlock);
   }
 }
+exports.getSyncing = async() => {
+  // Returns Object|Boolean - A sync object as follows, when the node is currently syncing or false:
+  //  startingBlock: Number - The block number where the sync started.
+  //  currentBlock: Number - The block number where at which block the node currently synced to already.
+  //  highestBlock: Number - The estimated block number to sync to.
+  return await new Promise(async(resolve, reject) => {
+    web3.eth.isSyncing((error, result) => {
+      if(error) {
+         reject(error);
+      } else {
+        resolve(result);
+      }
+    });
+  }).catch(err => {
+    throw err
+  });
+}
 exports.getGasPrice = async() => {
   let gasPrice = await web3.eth.getGasPrice();
   if(gasPrice == 1000000000) {
@@ -33,17 +50,17 @@ exports.getGasPrice = async() => {
   }
   return gasPrice;
 }
-exports.paritySyncStatus = async() => {
-  try {
-    let block = await web3.eth.getBlock(config.rootBlockNumber);
-    if(!block){
-      return false;
-    }
-    return true;
-  } catch(err){
-    return false;
-  }
-}
+// exports.paritySyncStatus = async() => {
+//   try {
+//     let block = await web3.eth.getBlock(config.rootBlockNumber);
+//     if(!block){
+//       return false;
+//     }
+//     return true;
+//   } catch(err){
+//     return false;
+//   }
+// }
 
 exports.subscribe = async() => {
   // var subscription = web3.eth.subscribe('newBlockHeaders', function(error, result){
@@ -69,49 +86,56 @@ let syncPastEvents = async(lastSyncedBlockNumber, eventType) => {
       },
       async(error, events) => {
         if(error) {
+          console.log("error occured while synchronizing past events");
+          console.log(error);
           throw error;
-          // console.log("error occured while synchronizing past events");
-          // console.log(error)
         } else {
           console.log("events.length: "+ events.length);
           for(let i = 0; i < events.length; i++) {
-            let userChainEvents = await utils.mustFind(models.instance.userchainevents, {userpubkey: events[i].returnValues.sender});
+            //let userChainEvents = await utils.mustFind(models.instance.userchainevents, {userpubkey: events[i].returnValues.sender});
             let chainEvent = await utils.find(models.instance.chainevent, {txid: events[i].transactionHash});
             if(chainEvent == null) {
               // new event
-              if(!userChainEvents.chainevents) {
-                userChainEvents.chainevents = [events[i].transactionHash];
-              } else {
-                userChainEvents.chainevents.push(events[i].transactionHash);
+              // if(!userChainEvents.chainevents) {
+              //   userChainEvents.chainevents = [events[i].transactionHash];
+              // } else {
+              //   userChainEvents.chainevents.push(events[i].transactionHash);
+              // }
+              //await utils.save(userChainEvents;;
+              let sender = "0x0000000000000000000000000000000000000000"; // creation of contract creates a Transfer tx with no sender
+              if(events[i].returnValues && events[i].returnValues.sender){
+                sender = events[i].returnValues.sender;
               }
-              await utils.save(userChainEvents);
               let newChainEvent = new models.instance.chainevent({
+                pubkey: sender,
                 txid: events[i].transactionHash,
-                userpubkey: events[i].returnValues.sender,
                 type: eventType,
                 blockhash: events[i].blockHash,
                 blocknumber: events[i].blockNumber,
                 timesReorged: 0,
                 distReorged: 0,
               });
+              console.log(newChainEvent);
               await utils.save(newChainEvent);
             } else {
               // reorged event
               // should already be in userchainevents...
-              let found = false;
-              for(let j = 0; j < userChainEvents.chainevents.length; j++) {
-                if(userChainEvents.chainevents[j] == events[i].transactionHash) {
-                  found = true;
-                  break;
-                }
+              // let found = false;
+              // for(let j = 0; j < userChainEvents.chainevents.length; j++) {
+              //   if(userChainEvents.chainevents[j] == events[i].transactionHash) {
+              //     found = true;
+              //     break;
+              //   }
+              // }
+              // if(!found) {
+              //   throw "Event not found in userchainevent. Database consistency error.";
+              // }
+              if(chainEvent.blockhash != events[i].blockHash) {
+                chainEvent.timesReorged = chainEvent.timesReorged + 1;
+                let distanceReorged = chainEvent.blocknumber - lastSyncedBlockNumber;
+                chainEvent.distReorged = chainEvent.distReorged + distanceReorged;
+                await utils.save(chainEvent);
               }
-              if(!found) {
-                throw "Event not found in userchainevent. Database consistency error.";
-              }
-              chainEvent.timesReorged = chainEvent.timesReorged + 1;
-              let distanceReorged = chainEvent.blocknumber - lastSyncedBlockNumber;
-              chainEvent.distReorged = chainEvent.distReorged + distanceReorged;
-              await utils.save(chainEvent);
             }
           }
         }
@@ -119,13 +143,36 @@ let syncPastEvents = async(lastSyncedBlockNumber, eventType) => {
     );
   }
 }
+
+let isBlockSynced = async(blockNumber) => {
+  let dbBlock = await utils.find(models.instance.block, {number: blockNumber});
+  if(dbBlock) {
+    let ethBlock = await web3.eth.getBlock(blockNumber);
+    if(dbBlock.hashid == ethBlock.hash) {
+      return true;
+    }
+  }
+  return false
+}
+
+findLastSyncedBlockBinarySearch = async(start, end) => {
+  let mid = Math.floor((end + start)/2);
+  if(end - 1 === mid ){ return isBlockSynced(mid)? mid: end;}
+  console.log("binary searching at blocknumber: " + mid);
+  if(await isBlockSynced(mid)){
+    return findLastSyncedBlockBinarySearch(mid, end);
+  } else {
+    return findLastSyncedBlockBinarySearch(start, mid);
+  }
+}
+
 exports.synchronize = async() => {
   // on reorg or startup
   // find the latest known block
   // find all chainevents effected and update them
   // get past Events from last known block to new latest block and process
   // confirm latest is still latest and subscribe to events
-  // TODO: get gaslimit Here
+  // TODO: get gaslimit Here?
   console.log("syncing");
   let lastBlock = await web3.eth.getBlock('latest');
   console.log("latest block: " + lastBlock.number)
@@ -133,24 +180,26 @@ exports.synchronize = async() => {
   // Find the latest block we have synced with
   let lastSyncedBlockNumber = lastBlock.number;//await web3.eth.getBlockNumber().then((value) => {return value;});//
   console.log("searching for last synced block...");
-  while(true) {
-    if(lastSyncedBlockNumber%1000 == 0){
-      console.log("searching... " + lastSyncedBlockNumber);
-    }
-    let previousBlock = await utils.find(models.instance.block, {number: lastSyncedBlockNumber});
-    try{
-      if(previousBlock) {
-        let ethBlock = await web3.eth.getBlock(lastSyncedBlockNumber);
-        if(previousBlock.hashid == ethBlock.hash) {
-          break;
-        }
-      }
-      lastSyncedBlockNumber--;
-    } catch(err){
-      console.log("could not find block lastSyncedBlockNumber: " + lastSyncedBlockNumber);
-      throw err;
-    }
-  }
+  lastSyncedBlockNumber = await findLastSyncedBlockBinarySearch(config.rootBlockNumber, lastBlock.number);
+
+  // while(true) {
+  //   //if(lastSyncedBlockNumber%1000 == 0){
+  //     console.log("searching... " + lastSyncedBlockNumber);
+  //   //}
+  //   let previousBlock = await utils.find(models.instance.block, {number: lastSyncedBlockNumber});
+  //   try{
+  //     if(previousBlock) {
+  //       let ethBlock = await web3.eth.getBlock(lastSyncedBlockNumber);
+  //       if(previousBlock.hashid == ethBlock.hash) {
+  //         break;
+  //       }
+  //     }
+  //     lastSyncedBlockNumber--;
+  //   } catch(err){
+  //     console.log("could not find block lastSyncedBlockNumber: " + lastSyncedBlockNumber);
+  //     throw err;
+  //   }
+  // }
 
   console.log("Syncing new blocks to DB... " + lastSyncedBlockNumber + " to " + lastBlock.number);
   for(let k = lastSyncedBlockNumber + 1; k <= lastBlock.number; k++) {
@@ -167,7 +216,9 @@ exports.synchronize = async() => {
           timesReorged: 0,
         });
       } else {
-        console.log("reorged block")
+        if(k%100 == 0){
+          console.log("reorged block: " + k);
+        }
         // reorged block
         reorgedBlock.timesReorged = reorgedBlock.timesReorged + 1;
         reorgedBlock.hashid = newBlock.hash;
@@ -205,6 +256,19 @@ exports.synchronize = async() => {
   await syncPastEvents(lastSyncedBlockNumber, "ChangeMiningPrice");
   await syncPastEvents(lastSyncedBlockNumber, "ChangeMiningSnekPrice");
   await syncPastEvents(lastSyncedBlockNumber, "Transfer");
+  console.log("****** synchronization success ******");
+}
+
+exports.resyncAllPastEvents = async() => {
+
+  await syncPastEvents(0, "Mine");
+  await syncPastEvents(0, "MineWithSnek");
+  await syncPastEvents(0, "Paid");
+  await syncPastEvents(0, "SetOwner");
+  await syncPastEvents(0, "SetRoot");
+  await syncPastEvents(0, "ChangeMiningPrice");
+  await syncPastEvents(0, "ChangeMiningSnekPrice");
+  await syncPastEvents(0, "Transfer");
   console.log("****** synchronization success ******");
 }
 
@@ -246,6 +310,7 @@ exports.estimateGas = async(user, method, options) => {
     throw err
   });
 }
+
 exports.sendContractCall = async(user, method, options, resolveTime = "onMined") => {
   return await new Promise(async(resolve, reject) => {
     exports.makeAcctFromCache(user.name, user.randomSecret).then((acct) => {
@@ -254,8 +319,7 @@ exports.sendContractCall = async(user, method, options, resolveTime = "onMined")
       }).on('error', function(error){
         reject(error);
       }).on('transactionHash', function(transactionHash){
-        console.log("on transactionHash");
-        console.log("resolveTime: " + resolveTime);
+        console.log("txhash: " + transactionHash)
         if(resolveTime == "onSent") {
           resolve(transactionHash);
         }
@@ -309,6 +373,8 @@ exports.makeAcctFromCache = async(name, secret) => {
   return await new Promise((resolve, reject) => {
     try {
       exports.getPrivateKeyFromCache(name, secret).then((privKey) => {
+        console.log("privKey")
+        console.log(privKey)
         let acct = web3.eth.accounts.privateKeyToAccount(privKey);
         resolve(acct);
       }).catch(err => {
@@ -319,44 +385,54 @@ exports.makeAcctFromCache = async(name, secret) => {
     }
   }).catch(err => {throw err});
 }
+
 exports.sendEth = async(user, to, howMuch, resolveTime = "onMined") => {
   return await new Promise(async(resolve, reject) => {
     try {
+      // await ethereum.sendEth(req.user, contract.address, txdata.amount, "onSent");
       console.log("sendeth")
-      console.log(user.name)
-      exports.makeAcctFromCache(user.name, user.randomSecret).then((acct) => {
+
+      let gasPrice = await web3.eth.getGasPrice();
+      let acct = await exports.makeAcctFromCache(user.name, user.randomSecret);
+      //.then((acct) => {
       //let acct = await exports.makeAcctFromCache(name, password);
-        web3.eth.accounts.wallet.add(acct);
-        web3.eth.sendTransaction({
-          from: acct.address,
-          to: to,
-          value: howMuch,
-          gas: 21000 + 10000,
-        })
-        .on('error', function(error){
-          reject(error);
-        }).on('transactionHash', function(transactionHash){
-          console.log("on transactionHash");
-          console.log("resolveTime: " + resolveTime);
-          if(resolveTime == "onSent") {
-            resolve(transactionHash);
-          }
-        }).on('receipt', function(receipt){
-          if(resolveTime == "onMined") {
-            resolve(receipt);
-          }
-        }).on('confirmation', function(confirmationNumber, receipt){
-          // fires each time tx is mined up to the 24th confirmationNumber
-          // console.log("confirmationNumber: " + confirmationNumber);
-        }).then(function(newContractInstance){
-          // console.log("newContractInstance.options.address");
-          // console.log(newContractInstance.options.address);
-        });
-        web3.eth.accounts.wallet.remove(acct);
-      }).catch(err => {
-        reject(err);
-        //throw err
+      web3.eth.accounts.wallet.add(acct);
+      //let nonce = await web3.eth.getTransactionCount(user.pubkey);
+      gasPrice = 12*gasPrice + 1000000000;
+      console.log("gasPrice: " + gasPrice)
+      console.log("gasPrice: " + gasPrice/1000000000 + " GWei")
+      web3.eth.sendTransaction({
+        //nonce: web3.utils.toHex(nonce) + 1,
+        from: acct.address,
+        to: to,
+        value: howMuch,
+        gas: 21000 + 10000,
+        gasPrice: gasPrice,
+      })
+      .on('error', function(error){
+        reject(error);
+      }).on('transactionHash', function(transactionHash){
+        console.log("on transactionHash");
+        console.log("resolveTime: " + resolveTime);
+        if(resolveTime == "onSent") {
+          resolve(transactionHash);
+        }
+      }).on('receipt', function(receipt){
+        if(resolveTime == "onMined") {
+          resolve(receipt);
+        }
+      }).on('confirmation', function(confirmationNumber, receipt){
+        // fires each time tx is mined up to the 24th confirmationNumber
+        // console.log("confirmationNumber: " + confirmationNumber);
+      }).then(function(newContractInstance){
+        // console.log("newContractInstance.options.address");
+        // console.log(newContractInstance.options.address);
       });
+      web3.eth.accounts.wallet.remove(acct);
+      // }).catch(err => {
+      //   reject(err);
+      //   //throw err
+      // });
     } catch(err) {
       reject(err);
     }

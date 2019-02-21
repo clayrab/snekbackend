@@ -16,22 +16,22 @@ let abis = {
   snekCoin0_0_1: require('./eth/abi/SnekCoin0_0_1.json'),
 }
 
-// TransactionTypes: Buy Powerups(ETH), Buy Levels(ETH), Buy Levels(SNK), Mine mine(SNK+Gas), Mine Game(ETH)
+// TransactionTypes: Buy PowerupsBoughtups(ETH), Buy Levels(ETH), Buy Levels(SNK), Mine mine(SNK+Gas), Mine Game(ETH)
 exports.createTransactionRoute = async (req, res, next) => {
   console.log("createTransactionRoute");
   if(!req.body.type){
     utils.error500("Must provide type", res);
-  }
-  if(!req.body.amount){
+  } else if(!req.body.amount){
     utils.error500("Must provide amount", res);
+  } else {
+    let transactionKey = await crypt.randomSecret(32);
+    let txData = {
+      type: req.body.type,
+      amount: req.body.amount
+    };
+    await keyCache.transactionsCacheSet(transactionKey, txData);
+    utils.ok200({transactionKey: transactionKey, txdata: txData}, res);
   }
-  let transactionKey = await crypt.randomSecret(32);
-  let txData = {
-    type: req.body.type,
-    amount: req.body.amount
-  };
-  await keyCache.transactionsCacheSet(transactionKey, txData);
-  utils.ok200({transactionKey: transactionKey, txdata: txData}, res);
 }
 let saveUserAfterMining = async(dbUser, minedAmount) => {
   dbUser.mineUpgraded = false;
@@ -48,6 +48,103 @@ let saveUserAfterMining = async(dbUser, minedAmount) => {
   // }
   await utils.save(dbUser);
   return dbUser;
+}
+exports.sendSnekRoute =  async (req, res, next) => {
+  console.log("sendSnekRoute")
+  console.log(req.body.to)
+  try {
+    let txdata = await validateTransactionForm(req, res);
+    if(txdata){
+      if(txdata.type == "SNK"){
+        let amount = parseInt(txdata.amount, 10);
+        if(amount == req.body.amount) {
+          await savePurchase(req, txdata, amount);
+          //let contract = await utils.mustFind(models.instance.contract,{name: "snekCoinToken"});
+          let txhash = await snek.transferSnek(req.user, req.body.to, amount);
+          let newtx = new models.instance.transaction({
+            pubkey: req.user.pubkey,
+            txhash: txhash,
+            time: (new Date().toISOString()),
+            type: "snk",
+            from: req.user.pubkey,
+            to: req.body.to,
+            amount: models.datatypes.Long.fromNumber(amount),
+            fee: null,
+          });
+          await utils.save(newtx);
+          utils.ok200({txhash: txhash}, res);
+        } else if(txdata.amount > amount){
+          utils.error500("Amount sent is too low.", res);
+        } else {
+          utils.error500("Amount sent is too high.", res);
+        }
+      } else {
+        utils.error500("Powerups must be paid for with ETH.", res);
+      }
+    } else {
+      utils.error500("Wrong coin type.", res);
+    }
+  } catch(err) {
+    if((err + "").startsWith("Error finding txkey")){
+      utils.error500("Error: Transaction not found.", res);
+    } else if((err + "").startsWith("Error finding key")){
+      utils.error500("Error: User not found. Please login again.", res);
+    } else{
+      next(err);
+    }
+  }
+  //validate req.body.to
+  try {
+
+  } catch(err) {
+    next(err);
+  }
+}
+exports.sendEthRoute = async (req, res, next) => {
+  //validate address
+  console.log("sendethroute")
+  console.log(req.body.to)
+  try {
+    let txdata = await validateTransactionForm(req, res);
+    if(txdata){
+      if(txdata.type == "ETH"){
+        let amount = parseInt(txdata.amount, 10);
+        if(amount == req.body.amount) {
+          await savePurchase(req, txdata, amount);
+          //let contract = await utils.mustFind(models.instance.contract,{name: "snekCoinToken"});
+          let txhash = await ethereum.sendEth(req.user, req.body.to, amount, "onSent");
+          let newtx = new models.instance.transaction({
+            pubkey: req.user.pubkey,
+            txhash: txhash,
+            time: (new Date().toISOString()),
+            type: "eth",
+            from: req.user.pubkey,
+            to: req.body.to,
+            amount: models.datatypes.Long.fromNumber(amount),
+            fee: null,
+          });
+          await utils.save(newtx);
+          utils.ok200({txhash: txhash}, res);
+        } else if(txdata.amount > amount){
+          utils.error500("Amount sent is too low.", res);
+        } else {
+          utils.error500("Amount sent is too high.", res);
+        }
+      } else {
+        utils.error500("Powerups must be paid for with ETH.", res);
+      }
+    } else {
+      utils.error500("Wrong coin type.", res);
+    }
+  } catch(err) {
+    if((err + "").startsWith("Error finding txkey")){
+      utils.error500("Error: Transaction not found.", res);
+    } else if((err + "").startsWith("Error finding key")){
+      utils.error500("Error: User not found. Please login again.", res);
+    } else{
+      next(err);
+    }
+  }
 }
 exports.mineWithSnekRoute = async (req, res, next) => {
   try {
@@ -83,10 +180,18 @@ exports.mineWithSnekRoute = async (req, res, next) => {
             usr = await saveUserAfterMining(usr, minableAmount);
             await clearTransaction(req);
             let txhash = await ethereum.sendContractCall(req.user, method, options, "onSent");
-            utils.ok200({
+            let newtx = new models.instance.transaction({
+              pubkey: req.user.pubkey,
               txhash: txhash,
-              user: usr,
-            }, res);
+              time: (new Date().toISOString()),
+              type: "mineWithSnek",
+              from: null,
+              to: null,
+              amount: models.datatypes.Long.fromNumber(minableAmount),
+              fee: models.datatypes.Long.fromNumber(price),
+            });
+            await utils.save(newtx);
+            utils.ok200({txhash: txhash, user: usr,}, res);
           }
         } else if(sentPrice > price){
           utils.error500("Amount paid is too high.", res);
@@ -145,10 +250,18 @@ exports.mineRoute = async (req, res, next) => {
             usr = await saveUserAfterMining(usr, minableAmount);
             await clearTransaction(req);
             let txhash = await ethereum.sendContractCall(req.user, method, options, "onSent");
-            utils.ok200({
+            let newtx = new models.instance.transaction({
+              pubkey: req.user.pubkey,
               txhash: txhash,
-              user: usr,
-            }, res);
+              time: (new Date().toISOString()),
+              type: "mineWithSnek",
+              from: null,
+              to: null,
+              amount: models.datatypes.Long.fromNumber(minableAmount),
+              fee: models.datatypes.Long.fromNumber(price),
+            });
+            await utils.save(newtx);
+            utils.ok200({txhash: txhash, user: usr,}, res);
           }
         } else if(sentPrice > price){
           utils.error500("Amount paid is too high.", res);
@@ -499,6 +612,11 @@ exports.recordScoreRoute = async (req, res, next) => {
     next(err);
   }
 }
+
+exports.getSyncyingRoute = async (req, res, next) => {
+  let sync = await ethereum.getSyncing();
+  utils.ok200({sync: sync, }, res);
+}
 exports.getLastGasRoute = async (req, res, next) => {
   let lastBlock = await web3.eth.getBlock('latest');
   utils.ok200({gasLimit: lastBlock.gasLimit}, res);
@@ -638,31 +756,30 @@ exports.getGamesRoute = async(req, res, next) => {
   let games = await utils.findAll(models.instance.game, {pubkey: req.user.pubkey});
   utils.ok200({games: games}, res);
 }
-exports.sendSnekRoute =  async (req, res, next) => {
-  //validate req.body.to
+exports.getTransactionsRoute  = async(req, res, next) => {
+  let transactions = await utils.findAll(models.instance.transaction, {pubkey: req.user.pubkey});
+  utils.ok200({transactions: transactions}, res);
+}
+let getUserBalances = async(req, dbUser) => {
   try {
-    let receipt = await snek.transfer(req.user, req.body.to, req.body.howmany);
-    utils.ok200(receipt, res);
+    let snekContract = await ethereum.getContract("snekCoinToken");
+    let snekBal = await snek.getBalance(req.user);
+    let ethBal = await ethereum.getBalance(req.user);
+    let balances = {
+      eth: ethBal,
+      snek: snekBal,
+      pubkey: dbUser.pubkey,
+      name: dbUser.name,
+      unredeemed: dbUser.unredeemed,
+      mineMax: dbUser.mineMax,
+      haul: dbUser.haul,
+      gamecount: dbUser.gamecount,
+      totalhaul: dbUser.totalhaul,
+    };
+    return balances;
   } catch(err) {
     next(err);
   }
-}
-let getUserBalances = async(req, dbUser) => {
-  let snekContract = await ethereum.getContract("snekCoinToken");
-  let snekBal = await snek.getBalance(req.user);
-  let ethBal = await ethereum.getBalance(req.user);
-  let balances = {
-    eth: ethBal,
-    snek: snekBal,
-    pubkey: dbUser.pubkey,
-    name: dbUser.name,
-    unredeemed: dbUser.unredeemed,
-    mineMax: dbUser.mineMax,
-    haul: dbUser.haul,
-    gamecount: dbUser.gamecount,
-    totalhaul: dbUser.totalhaul,
-  };
-  return balances;
 }
 exports.getUserRoute = async (req, res, next) => {
   try {

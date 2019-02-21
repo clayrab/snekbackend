@@ -20,12 +20,91 @@ const config = require("./utils/config.js");
 // let host = '127.0.0.1';
 // let keyspace = 'sc';
 
+//        price
+//          name      : "varchar",
+//          value     : "bigint",
+//          key:["name"],
+//        purchase
+//          username      : "varchar",
+//          type          : "varchar",
+//          value         : "bigint",
+//          details       : "varchar",
+//          key:["username", "type"],
+//        user
+//          pubkey        : "varchar",
+//          name          : "varchar",
+//          pwcrypt       : "varchar",
+//          keycrypt      : "varchar",
+//          unredeemed    : "int",
+//          mineMax       : "int",
+//          mineUpgraded  : "boolean", //bitmask
+//          purchasedGames: { type: "map", typeDef: "<varchar, int>" },
+//          haul          : "int",
+//          gamecount     : "int",
+//          totalhaul     : "int",
+//          totalWinnings : "int",
+//          avgPerGame    : "double",
+//          key:["pubkey"],
+       // usergames
+       //   pubkey    : "varchar",
+       //   gameids   : { type: "list", typeDef: "<varchar>" },
+       //   key:["pubkey"],
+//        userpowerups
+//          pubkey    : "varchar",
+//          powerups   : { type: "map", typeDef: "<varchar, int>" },
+//          key:["pubkey"],
+//        game
+//          pubkey    : "varchar",
+//          time      : "timestamp",
+//          level     : "int",
+//          score     : "int",
+//          powerups  : "int",
+//          key:[["pubkey"], "time"],
+//        transaction
+//          pubkey    : "varchar",
+//          txhash    : "varchar",
+//          time      : "timestamp",
+//          type      : "varchar",
+//          from      : "varchar",
+//          to        : "varchar",
+//          amount    : "bigint",
+//          fee       : "bigint",
+//          key:[["pubkey"], "time"],
+//        usermap
+//          name      : "varchar",
+//          pubkey    : "varchar",
+//          key:["name"]
+//        chainevent
+//          pubkey        : "varchar",
+//          txid          : "varchar",
+//          type          : "varchar",
+//          blocknumber   : "int",
+//          blockhash     : "varchar",
+//          timesReorged  : "int",
+//          distReorged   : "int",
+//          key: ["pubkey","txid"]
+       // userchainevents
+       //   userpubkey    : "varchar",
+       //   chainevents   : { type: "set", typeDef: "<varchar>"}
+       //   key: ["userpubkey"]
+//        contract
+//          name          : "varchar",
+//          owner         : "varchar",
+//          address       : "varchar",
+//          abi           : "varchar",
+//          bytecode      : "varchar",
+//          key: ["name"]
+//        block
+//          number          : "int",
+//          hashid          : "varchar",
+//          timesReorged    : "int",
+//          key: ["number"],
+
+//          ***** BEGIN FILE *****
 let port = 9042;
 let host = '127.0.0.1';
 let keyspace = 'sc';
-//let keyspace = 'sc';
 if(config.currentEnv == "qa"){
-  // user different port and keyspace so we don't accidentally sync to the wrong chain.
   port = 9043;
   host = '127.0.0.1';
   keyspace = 'scqa';
@@ -33,51 +112,49 @@ if(config.currentEnv == "qa"){
   port = 9044;
   keyspace = 'scprod';
 }
-console.log("cassandra port: " + port)
 module.exports = {
  models:  ExpressCassandra.createClient({
-    clientOptions: {
-        contactPoints: [host],
-        protocolOptions: { port: port },
-        keyspace: keyspace,
-        queryOptions: {consistency: ExpressCassandra.consistencies.one}
+  clientOptions: {
+    contactPoints: [host],
+    protocolOptions: { port: port },
+    keyspace: keyspace,
+    queryOptions: {consistency: ExpressCassandra.consistencies.one}
+  },
+  ormOptions: {
+    udts: {
+      // contract : {
+      //   name          : "varchar",
+      //   version_major : "int",
+      //   version_minor : "varchar",
+      //   address       : "varchar"
+      // },
+      // game: {
+      //   levelname     : "varchar",
+      //   score         : "int",
+      //   powerups      : "int",
+      // }
     },
-    ormOptions: {
-      udts: {
-        // contract : {
-        //   name          : "varchar",
-        //   version_major : "int",
-        //   version_minor : "varchar",
-        //   address       : "varchar"
-        // },
-        // game: {
-        //   levelname     : "varchar",
-        //   score         : "int",
-        //   powerups      : "int",
-        // }
-      },
-      udfs: {
-        // fLog: {
-        //     language: 'java',
-        //     code: 'return Double.valueOf(Math.log(input.doubleValue()));',
-        //     returnType: 'double',
-        //     inputs: {
-        //         input: 'double'
-        //     }
-        // },
-      },
-      defaultReplicationStrategy : {
-          class: 'SimpleStrategy',
-          replication_factor: 1
-      },
-      migration: 'safe',
+    udfs: {
+      // fLog: {
+      //     language: 'java',
+      //     code: 'return Double.valueOf(Math.log(input.doubleValue()));',
+      //     returnType: 'double',
+      //     inputs: {
+      //         input: 'double'
+      //     }
+      // },
+    },
+    defaultReplicationStrategy : {
+        class: 'SimpleStrategy',
+        replication_factor: 1
+    },
+    migration: 'safe',
     }
-  })
+  }),
 };
 let models = module.exports.models;
 let PriceModel = models.loadSchema('price', {
   fields: {
-    //roles     : { type: "set", typeDef: "<int>"},
     name      : "varchar",
     value     : "bigint",
   },
@@ -88,7 +165,6 @@ PriceModel.syncDB(function(err, result) {
 });
 let PurchaseModel = models.loadSchema('purchase', {
   fields: {
-    //roles     : { type: "set", typeDef: "<int>"},
     username      : "varchar",
     type          : "varchar",
     value         : "bigint",
@@ -109,12 +185,11 @@ let UserModel = models.loadSchema('user', {
     unredeemed    : "int",
     mineMax       : "int",
     mineUpgraded  : "boolean", //bitmask
-    purchasedGames: {
-      type: "map",
-      typeDef: "<varchar, int>"
-    },
+    purchasedGames: { type: "map", typeDef: "<varchar, int>" },
     haul          : "int",
     gamecount     : "int",
+    totalWinnings : "int",
+    avgPerGame    : "double", // for histogram
     totalhaul     : "int",
   },
   key:["pubkey"],
@@ -122,23 +197,21 @@ let UserModel = models.loadSchema('user', {
 UserModel.syncDB(function(err, result) {
     if (err) throw err;
 });
-let UserGamesModel = models.loadSchema('usergames', {
-  fields: {
-    //roles     : { type: "set", typeDef: "<int>"},
-    pubkey    : "varchar",
-    gameids   : {
-      type: "list",
-      typeDef: "<varchar>"
-    },
-  },
-  key:["pubkey"],
-});
-UserGamesModel.syncDB(function(err, result) {
-    if (err) throw err;
-});
+// let UserGamesModel = models.loadSchema('usergames', {
+//   fields: {
+//     pubkey    : "varchar",
+//     gameids   : {
+//       type: "list",
+//       typeDef: "<varchar>"
+//     },
+//   },
+//   key:["pubkey"],
+// });
+// UserGamesModel.syncDB(function(err, result) {
+//     if (err) throw err;
+// });
 let PowerupModel = models.loadSchema('userpowerups', {
   fields: {
-    //roles     : { type: "set", typeDef: "<int>"},
     pubkey    : "varchar",
     powerups   : {
       type: "map",
@@ -153,7 +226,6 @@ PowerupModel.syncDB(function(err, result) {
 
 let GameModel = models.loadSchema('game', {
   fields: {
-    //roles     : { type: "set", typeDef: "<int>"},
     pubkey    : "varchar",
     time      : "timestamp",
     level     : "int",
@@ -163,6 +235,22 @@ let GameModel = models.loadSchema('game', {
   key:[["pubkey"], "time"],
 });
 GameModel.syncDB(function(err, result) {
+    if (err) throw err;
+});
+let TransactionModel = models.loadSchema('transaction', {
+  fields: {
+    pubkey    : "varchar",
+    txhash    : "varchar",
+    time      : "timestamp",
+    type      : "varchar",
+    from      : "varchar",
+    to        : "varchar",
+    amount    : "bigint",
+    fee       : "bigint",
+  },
+  key:[["pubkey"], "time"],
+});
+TransactionModel.syncDB(function(err, result) {
     if (err) throw err;
 });
 
@@ -179,8 +267,8 @@ UserMapModel.syncDB(function(err, result) {
 
 let ChainEventModel = models.loadSchema('chainevent', {
   fields:{
+    pubkey        : "varchar",
     txid          : "varchar",
-    userpubkey    : "varchar",
     type          : "varchar",
     blocknumber   : "int",
     blockhash     : "varchar",
@@ -188,27 +276,27 @@ let ChainEventModel = models.loadSchema('chainevent', {
     timesReorged  : "int",
     distReorged   : "int",
   },
-  key: ["txid"]
+  key: ["pubkey"]
 });
 
 ChainEventModel.syncDB(function(err, result) {
     if (err) throw err;
 });
-
-let UserChainEventModel = models.loadSchema('userchainevents', {
-  fields:{
-    userpubkey    : "varchar",
-    chainevents   : {
-      type: "set",
-      typeDef: "<varchar>"
-    }
-  },
-  key: ["userpubkey"]
-});
-
-UserChainEventModel.syncDB(function(err, result) {
-    if (err) throw err;
-});
+//
+// let UserChainEventModel = models.loadSchema('userchainevents', {
+//   fields:{
+//     userpubkey    : "varchar",
+//     chainevents   : {
+//       type: "set",
+//       typeDef: "<varchar>"
+//     }
+//   },
+//   key: ["userpubkey"]
+// });
+//
+// UserChainEventModel.syncDB(function(err, result) {
+//     if (err) throw err;
+// });
 
 let ContractModel = models.loadSchema('contract', {
   fields:{

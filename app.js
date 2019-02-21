@@ -54,7 +54,8 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(cookieParser());
 
-passport.use(auth.loginStrategy);
+//passport.use(auth.loginStrategy);
+passport.use(auth.passwordStrategy);
 passport.use('jwt', auth.jwtStrategy);
 
 app.post('/createSnekToken', passport.authenticate('jwt', { session: false }), snekRoutes.createSnekTokenRoute);
@@ -67,10 +68,11 @@ app.get('/getLastGas', snekRoutes.getLastGasRoute);
 app.get('/getPrices', snekRoutes.getPricesRoute);
 app.get('/getOwner', snekRoutes.getOwnerRoute);
 app.get('/getLastBlock', snekRoutes.getLastBlockRoute);
+app.get('/getSyncing', snekRoutes.getSyncyingRoute);
 app.get('/getUser', passport.authenticate('jwt', { session: false }), snekRoutes.getUserRoute);
 app.get('/getGames', passport.authenticate('jwt', { session: false }), snekRoutes.getGamesRoute);
-//app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoutes.getBlockRoute);
-// app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoutes.getBlockRoute);
+app.get('/getTransactions', passport.authenticate('jwt', { session: false }), snekRoutes.getTransactionsRoute);
+
 //app.get('/getBlock', passport.authenticate('jwt', { session: false }), snekRoutes.getBlockRoute);
 
 // MineHauled+SNK+GAS
@@ -88,27 +90,16 @@ app.post('/buyUpgradedMine', passport.authenticate('jwt', { session: false }), s
 app.post('/buySuperGame', passport.authenticate('jwt', { session: false }), snekRoutes.buySuperGameRoute);
 app.post('/mine', passport.authenticate('jwt', { session: false }), snekRoutes.mineRoute);
 app.post('/mineWithSnek', passport.authenticate('jwt', { session: false }), snekRoutes.mineWithSnekRoute);
-// app.post('/paySnek', passport.authenticate('jwt', { session: false }), snekRoutes.paySnekRoute);
-// app.post('/pay', passport.authenticate('jwt', { session: false }), snekRoutes.payRoute);
-
+app.post('/sendEth', passport.authenticate('jwt', { session: false }), snekRoutes.sendEthRoute);
+app.post('/sendSnek', passport.authenticate('jwt', { session: false }), snekRoutes.sendSnekRoute);
 
 app.post('/setPrice', passport.authenticate('jwt', { session: false }), snekRoutes.setPriceRoute);
 app.post('/setAllPrices', passport.authenticate('jwt', { session: false }), snekRoutes.setAllPriceRoute);
 
 app.post('/createLocalUser', auth.createLocalUserRoute);
 app.post('/createLocalUserFromKey', auth.createLocalUserFromKeyRoute);
-
-//app.post('/sendEth', passport.authenticate('jwt', { session: false }), snekRoutes.sendEthRoute);
-// app.post('/sendtokens',
-//   passport.authenticate('jwt', { session: false }),
-//   async(req, res) => {
-//     var retData = {};
-//     var contract = new web3.eth.Contract(rewardTokenABI.abi);
-//     var receipt = await contract.methods.transfer(req.body.to, req.body.amount).send({from: req.user.pubkey});
-//     retData.txHash = receipt.transactionHash;
-//     utils.ok200(retData ,res);
-//   }
-// );
+app.post('/changePassword', passport.authenticate('jwt', { session: false }), auth.changePasswordRoute);
+app.post('/editProfile', passport.authenticate('jwt', { session: false }), auth.editProfileRoute);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -134,19 +125,43 @@ app.use(function(err, req, res, next) {
     res.send({error: err});
   }
 });
-app.on('listening', async () => {
-    // server ready to accept connections here
+server.on('listening', async () => {
+  //console.log("listening")
 });
-app.listen(3001, async() => {
+server.listen(3001, async() => {
   //let validDB = utils.validateModel();
   //console.log("validdb: " + validDB);
-  if(!(await ethereum.paritySyncStatus())){
-      throw "parity is not synched";
+  // if(!(await ethereum.paritySyncStatus())){
+  //   throw "parity is not synched";
+  // }
+  let syncing = await ethereum.getSyncing();
+  if(syncing){
+    console.log("***** parity is not synched! *****")
+    server.close(function () {
+      console.log("***** Closed all connections ***** ");
+      console.log("***** Exiting ***** ");
+      process.exit(0);
+      // Close db connections, etc.
+    });
+    setTimeout( function () {
+      console.error("***** Could not close connections in time, forcefully shutting down!!! *****");
+      process.exit(1);
+    }, 5*1000);
+  } else {
+    console.log("****** parity OK ******")
+    console.log("****** networkID: " + (await web3.eth.net.getId()) + " ******");
+    await ethereum.checkRootBlock();
+    await ethereum.synchronize();
+    await ethereum.subscribe();
+    await ethereum.configureOwnerCache();
+    //await ethereum.resyncAllPastEvents(); // use once if chainevent table is dropped or truncated.
+    console.log('****** Listening on port 3001! ******');
   }
-  console.log("****** networkID: " + (await web3.eth.net.getId()) + " ******");
-  await ethereum.checkRootBlock();
-  await ethereum.synchronize();
-  await ethereum.subscribe();
-  await ethereum.configureOwnerCache();
-  console.log('****** Listening on port 3001! ******');
+});
+process.on('SIGTERM', () => {
+  console.info('SIGTERM signal received.');
+  console.log('Closing http server.');
+  server.close(() => {
+    console.log('Http server closed.');
+  });
 });

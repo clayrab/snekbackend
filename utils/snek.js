@@ -74,15 +74,31 @@ exports.isFraud = async(user, howMany) => {
 //     throw "error: " + err;
 //   }
 // }
+//let getSyncing = async (req, res, next) => {
 exports.transferSnek = async(user, to, howMany) => {
-  let snekContract = ethereum.getContract("snekCoinToken");
-  let options = { from: user.pubkey, gas: 21000,};
-  let method = snekContract.methods.transfer(to, howMany, user.pubkey);
-  let txhash = await ethereum.sendContractCall(admin, method, options, "onSent");
+  let snekContract = await ethereum.getContract("snekCoinToken");
+  console.log("transferSnek");
+  let nonce = await web3.eth.getTransactionCount(user.pubkey);
+  let gasPrice = await web3.eth.getGasPrice();
+  console.log("gasprice: " + gasPrice)
+  let method = snekContract.methods.transfer(to, howMany);
+  let options = {
+    nonce: web3.utils.toHex(nonce) + 1,
+    from: user.pubkey,
+    gas: 21000,
+    gasPrice: gasPrice,
+  }
+  options.gas = (await ethereum.estimateGas(user, method, options)) + 10000;
+  console.log(options.gas);
+  let ethBal = await ethereum.getBalance(user);
+  if(options.gas * gasPrice > ethBal) {
+    utils.error500("Not enough ethereum to pay for gas.", res);
+  }
+  let txhash = await ethereum.sendContractCall(user, method, options, "onSent");
   return txhash;
 }
 exports.getMiningPrice = async(user) => {
-  let snekContract = ethereum.getContract("snekCoinToken");
+  let snekContract = await ethereum.getContract("snekCoinToken");
   snekContract.methods.getMiningPrice().call(function(error, result){
     if(error) {
       throw error;
@@ -91,7 +107,7 @@ exports.getMiningPrice = async(user) => {
   });
 }
 exports.getMiningSnekPrice = async(user) => {
-  let snekContract = ethereum.getContract("snekCoinToken");
+  let snekContract = await ethereum.getContract("snekCoinToken");
   snekContract.methods.getMiningSnekPrice().call(function(error, result){
     if(error) {
       throw error;
