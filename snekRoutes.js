@@ -591,13 +591,21 @@ exports.recordScoreRoute = async (req, res, next) => {
     //   throw "Cannot haul any more";
     // }
     if(howMany > config.gameMax || howMany < 0) {
-      throw "Score must be between 0 and " + config.gameMax;
+      //throw "Score must be between 0 and " + config.gameMax;
+      howMany = config.gameMax;
     }
     user.unredeemed = user.unredeemed + howMany;
+    user.totalWinnings = user.totalWinnings + howMany;
+    user.gamecount = user.gamecount + 1;
     if(user.haul + howMany > user.mineMax) {
       howMany = user.mineMax - user.haul;
     }
     user.haul = user.haul + howMany;
+    //          haul          : "int",
+    //          gamecount     : "int",
+    //          totalhaul     : "int",
+    //          totalWinnings : "int",
+    //          avgPerGame    : "double",
     await utils.save(user);
     let timestamp = new Date().toISOString();
     let newGame = new models.instance.game({
@@ -753,7 +761,7 @@ exports.getGamesRoute = async(req, res, next) => {
   console.log("getGames *********")
   //0x627306090abaB3A6e1400e9345bC60c78a8BEf57
   //let user = await utils.find(models.instance.game,{pubkey: req.user.pubkey});
-  let games = await utils.findAll(models.instance.game, {pubkey: req.user.pubkey});
+  let games = await utils.findAll(models.instance.game, {pubkey: req.user.pubkey, $limit: 50, });
   utils.ok200({games: games}, res);
 }
 exports.getTransactionsRoute  = async(req, res, next) => {
@@ -774,7 +782,8 @@ let getUserBalances = async(req, dbUser) => {
       mineMax: dbUser.mineMax,
       haul: dbUser.haul,
       gamecount: dbUser.gamecount,
-      totalhaul: dbUser.totalhaul,
+      totalWinnings: dbUser.totalWinnings,
+      mineUpgraded: dbUser.mineUpgraded,
     };
     return balances;
   } catch(err) {

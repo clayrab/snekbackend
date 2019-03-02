@@ -43,7 +43,8 @@ exports.changePasswordRoute = async (req, res, next) => {
           let acct = await ethereum.makeAcctFromCache(req.user.name, req.user.randomSecret);
           let storableHash = await crypt.bcryptHash(req.body.newpw, exports.saltRounds);
           let storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.user+req.body.newpw+config.aesSalt);
-          if(req.body.username == config.owner) {
+          if(req.body.user === config.owner) {
+            console.log("owner changing pw...")
             storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.user+config.ownerSalt+config.aesSalt);
           }
           let dbUser = await utils.findOne(models.instance.user, {pubkey: req.user.pubkey});
@@ -52,8 +53,6 @@ exports.changePasswordRoute = async (req, res, next) => {
           await utils.save(dbUser);
           req.body.pw = req.body.newpw;
           exports.loginRoute(req, res, next);
-          //utils.ok200({user: dbUser}, res);
-          //utils.ok200({status: "OK"}, res);
         }
       }
     )(req, res, next);
@@ -85,7 +84,7 @@ exports.createLocalUserRoute = async (req, res, next) => {
     //await utils.mustNotFind(models.instance.user, {pubkey: acct.pubkey});
     //let storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+req.body.pw+config.aesSalt);
     let storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+req.body.pw+config.aesSalt);
-    if(req.body.username == config.owner) {
+    if(req.body.username === config.owner) {
       storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+config.ownerSalt+config.aesSalt);
     }
     let newuser = new models.instance.user({
@@ -177,9 +176,17 @@ exports.loginRoute = function(req, res, next) {
         } else if(user){
           let privKey = crypt.decrypt(user.keycrypt, user.name+req.body.pw+config.aesSalt);
           if(user.name === config.owner) {
+            console.log("here?")
             // owner key must be accessible to entire app, so it is encrypted differently
+            console.log(privKey);
             privKey = crypt.decrypt(user.keycrypt, user.name+config.ownerSalt+config.aesSalt);
+            console.log(privKey);
           }
+          console.log("login")
+          console.log(user.name)
+          console.log(config.owner)
+          console.log(user.name === config.owner)
+          console.log(privKey);
           let randomSecret = await crypt.randomSecret();
           console.log("login randomSecret: " + randomSecret);
           let runtimeKeyCrypt = crypt.encrypt(privKey, user.name+randomSecret+config.aesSalt);

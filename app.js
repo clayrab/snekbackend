@@ -150,9 +150,13 @@ server.listen(3001, async() => {
   } else {
     console.log("****** parity OK ******")
     console.log("****** networkID: " + (await web3.eth.net.getId()) + " ******");
+    console.log("****** checkRootBlock ******");
     await ethereum.checkRootBlock();
+    console.log("****** synchronize ******");
     await ethereum.synchronize();
+    console.log("****** subscribe ******");
     await ethereum.subscribe();
+    console.log("****** configureOwnerCache ******");
     await ethereum.configureOwnerCache();
     //await ethereum.resyncAllPastEvents(); // use once if chainevent table is dropped or truncated.
     console.log('****** Listening on port 3001! ******');

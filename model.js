@@ -41,9 +41,7 @@ const config = require("./utils/config.js");
 //          purchasedGames: { type: "map", typeDef: "<varchar, int>" },
 //          haul          : "int",
 //          gamecount     : "int",
-//          totalhaul     : "int",
 //          totalWinnings : "int",
-//          avgPerGame    : "double",
 //          key:["pubkey"],
        // usergames
        //   pubkey    : "varchar",
@@ -189,8 +187,8 @@ let UserModel = models.loadSchema('user', {
     haul          : "int",
     gamecount     : "int",
     totalWinnings : "int",
-    avgPerGame    : "double", // for histogram
-    totalhaul     : "int",
+    //avgPerGame    : "double", // for histogram
+    //totalhaul     : "int",
   },
   key:["pubkey"],
 });
