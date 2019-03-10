@@ -176,19 +176,12 @@ exports.loginRoute = function(req, res, next) {
         } else if(user){
           let privKey = crypt.decrypt(user.keycrypt, user.name+req.body.pw+config.aesSalt);
           if(user.name === config.owner) {
-            console.log("here?")
-            // owner key must be accessible to entire app, so it is encrypted differently
-            console.log(privKey);
             privKey = crypt.decrypt(user.keycrypt, user.name+config.ownerSalt+config.aesSalt);
-            console.log(privKey);
           }
-          console.log("login")
-          console.log(user.name)
-          console.log(config.owner)
-          console.log(user.name === config.owner)
+          console.log("login, set private key.")
+          // owner key must be accessible to entire app, so it is encrypted differently
           console.log(privKey);
           let randomSecret = await crypt.randomSecret();
-          console.log("login randomSecret: " + randomSecret);
           let runtimeKeyCrypt = crypt.encrypt(privKey, user.name+randomSecret+config.aesSalt);
           console.log("Logged in! Setting key cache for user: " + user.name)
           await keyCache.keyCacheSet(user.name, runtimeKeyCrypt);

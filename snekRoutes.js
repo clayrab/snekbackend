@@ -769,13 +769,14 @@ exports.getTransactionsRoute  = async(req, res, next) => {
   utils.ok200({transactions: transactions}, res);
 }
 let getUserBalances = async(req, dbUser) => {
+  console.log("getUserBalances")
   try {
     let snekContract = await ethereum.getContract("snekCoinToken");
     let snekBal = await snek.getBalance(req.user);
     let ethBal = await ethereum.getBalance(req.user);
     let balances = {
       eth: ethBal,
-      snek: 0,
+      snek: snekBal,
       pubkey: dbUser.pubkey,
       name: dbUser.name,
       unredeemed: dbUser.unredeemed,
@@ -787,15 +788,13 @@ let getUserBalances = async(req, dbUser) => {
     };
     return balances;
   } catch(err) {
-    console.log("Herer?")
-    console.log(err)
     throw err;
   }
 }
 exports.getUserRoute = async (req, res, next) => {
+  console.log("getUserRoute")
   try {
     let user = await utils.mustFind(models.instance.user, {pubkey: req.user.pubkey});
-    getUserBalances(req, user);
     let balances = await getUserBalances(req, user);
     utils.ok200(balances, res);
   } catch(err) {
