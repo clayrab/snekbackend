@@ -775,7 +775,7 @@ let getUserBalances = async(req, dbUser) => {
     let ethBal = await ethereum.getBalance(req.user);
     let balances = {
       eth: ethBal,
-      snek: snekBal,
+      snek: 0,
       pubkey: dbUser.pubkey,
       name: dbUser.name,
       unredeemed: dbUser.unredeemed,
@@ -787,7 +787,9 @@ let getUserBalances = async(req, dbUser) => {
     };
     return balances;
   } catch(err) {
-    next(err);
+    console.log("Herer?")
+    console.log(err)
+    throw err;
   }
 }
 exports.getUserRoute = async (req, res, next) => {

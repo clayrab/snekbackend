@@ -115,7 +115,6 @@ let syncPastEvents = async(lastSyncedBlockNumber, eventType) => {
                 timesReorged: 0,
                 distReorged: 0,
               });
-              console.log(newChainEvent);
               await utils.save(newChainEvent);
             } else {
               // reorged event
@@ -365,6 +364,10 @@ exports.getPrivateKeyFromCache = async(name, password) => {
       let privKey = crypt.decrypt(value, name+password+config.aesSalt);
       resolve(privKey);
     }).catch(err => {
+      console.log("error retreiving item from cache: " + name);
+      // if(name === config.owner+"runtime"){
+      //
+      // }
       reject(err);
     });;
   }).catch(err => {throw err});
@@ -373,8 +376,6 @@ exports.makeAcctFromCache = async(name, secret) => {
   return await new Promise((resolve, reject) => {
     try {
       exports.getPrivateKeyFromCache(name, secret).then((privKey) => {
-        console.log("privKey")
-        console.log(privKey)
         let acct = web3.eth.accounts.privateKeyToAccount(privKey);
         resolve(acct);
       }).catch(err => {

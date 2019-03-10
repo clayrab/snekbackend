@@ -2,6 +2,23 @@ truncate user; truncate usermap;
 truncate chainevent; truncate block; truncate contract; truncate game; truncate usergames;
 truncate userchainevents;
 
+drop table contract;
+drop table user;
+drop table chainevent; drop table block; drop table game; drop table usergames;
+drop table usermap;
+drop table userchainevents;
+
+drop table contract;
+drop table user;
+drop table price;
+drop table purchase;
+drop table userpowerups;
+drop table game;
+drop table transaction;
+drop table usermap;
+drop table chainevent;
+drop table block;
+
 --- Cassandra ---
 prod:
 bin/cassandra

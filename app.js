@@ -54,6 +54,8 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(cookieParser());
 
+app.use(express.static('static')); // static assets
+
 //passport.use(auth.loginStrategy);
 passport.use(auth.passwordStrategy);
 passport.use('jwt', auth.jwtStrategy);
@@ -103,9 +105,16 @@ app.post('/editProfile', passport.authenticate('jwt', { session: false }), auth.
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
-  var err = new Error('404 Not Found');
-  err.status = 404;
-  next(err);
+
+  var error = new Error('404 Not Found');
+  console.log("**** 404 req: ", req.method + " " + req.protocol + "://" + req.headers.host + req.url + " ****");
+  //res.status = 404;
+  res.type('application/json');
+  res.status(404);
+  //res.status(401);
+  //res.send({error: error});
+  //res.send("Unauthorized");
+  next(error, req, res);
 });
 
 // error handlers
@@ -113,11 +122,13 @@ app.use(function(err, req, res, next) {
   // TypeError: Cannot read property 'fromRed' of null
   // => password for decryption was wrong and privateKeyToAccount(privKey) is throwing this
   //
+  //console.log(res.statusCode);
   console.log("*********************************** express error handler middleware ***********************************");
   console.log("*********************************** BEGIN ERROR ***********************************");
   console.log(err);
+  console.log("**** request: ", req.method + " " + req.protocol + "://" + req.headers.host + req.url + " ****");
   console.log("*********************************** END ERROR ***********************************");
-  res.status(err.status || 500);
+  res.status(res.statusCode || 500);
   res.type('application/json');
   if(err.message){
     res.send({error: err.message});
