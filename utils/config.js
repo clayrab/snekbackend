@@ -12,19 +12,19 @@ console.log("currentEnv: " + currentEnv);
 exports.currentEnv = currentEnv;
 exports.owner = "clayrab";
 exports.jwtExpirationTime = 2*24*60*60;
-exports.chaidId = 3; // EIP 155. Needs to be 1 for mainnet, 3 for ropsten.
+exports.chainId = 3; // EIP 155. Needs to be 1 for mainnet, 3 for ropsten.
 exports.gameMax = 1000;
 exports.rootBlockNumber = 4796000;
 exports.network = "dev";
 if(currentEnv == "qa") {
   exports.network = "ropsten";
   exports.rootBlockNumber = 4764546;
-  exports.chaidId = 3; // EIP 155. Needs to be 1 for mainnet, 3 for ropsten.
+  exports.chainId = 3; // EIP 155. Needs to be 1 for mainnet, 3 for ropsten.
   exports.jwtExpirationTime = 24*60*60;
 } else if(currentEnv == "prod") {
   exports.network = "mainnet";
   exports.rootBlockNumber = 6967018; // Dec 28 2018
-  exports.chaidId = 1; // EIP 155. Needs to be 1 for mainnet, 3 for ropsten.
+  exports.chainId = 1; // EIP 155. Needs to be 1 for mainnet, 3 for ropsten.
   exports.jwtExpirationTime = 24*60*60;
 }
 var accountSalt = "NonProdSalt";

@@ -139,6 +139,18 @@ app.use(function(err, req, res, next) {
 server.on('listening', async () => {
   //console.log("listening")
 });
+let closeServer = () => {
+  server.close(function () {
+    console.log("***** Closed all connections ***** ");
+    console.log("***** Exiting ***** ");
+    process.exit(0);
+    // Close db connections, etc.
+  });
+  setTimeout( function () {
+    console.error("***** Could not close connections in time, forcefully shutting down!!! *****");
+    process.exit(1);
+  }, 5*1000);
+}
 server.listen(3001, async() => {
   //let validDB = utils.validateModel();
   //console.log("validdb: " + validDB);
@@ -148,29 +160,26 @@ server.listen(3001, async() => {
   let syncing = await ethereum.getSyncing();
   if(syncing){
     console.log("***** parity is not synched! *****")
-    server.close(function () {
-      console.log("***** Closed all connections ***** ");
-      console.log("***** Exiting ***** ");
-      process.exit(0);
-      // Close db connections, etc.
-    });
-    setTimeout( function () {
-      console.error("***** Could not close connections in time, forcefully shutting down!!! *****");
-      process.exit(1);
-    }, 5*1000);
+    closeServer();
   } else {
-    console.log("****** parity OK ******")
-    console.log("****** networkID: " + (await web3.eth.net.getId()) + " ******");
-    console.log("****** checkRootBlock ******");
-    await ethereum.checkRootBlock();
-    console.log("****** synchronize ******");
-    await ethereum.synchronize();
-    console.log("****** subscribe ******");
-    await ethereum.subscribe();
-    console.log("****** configureOwnerCache ******");
-    await ethereum.configureOwnerCache();
-    //await ethereum.resyncAllPastEvents(); // use once if chainevent table is dropped or truncated.
-    console.log('****** Listening on port 3001! ******');
+    try {
+      console.log("****** parity OK ******")
+      console.log("****** networkID: " + (await web3.eth.net.getId()) + " ******");
+      console.log("****** checkRootBlock ******");
+      await ethereum.checkRootBlock();
+      console.log("****** synchronize ******");
+      await ethereum.synchronize();
+      console.log("****** subscribe ******");
+      await ethereum.subscribe();
+      console.log("****** configureOwnerCache ******");
+      await ethereum.configureOwnerCache();
+      //await ethereum.resyncAllPastEvents(); // use once if chainevent table is dropped or truncated.
+      console.log('****** Listening on port 3001! ******');
+    } catch(err) {
+      console.log(err);
+      console.log("Error during startup! Shutting Down!");
+      closeServer();
+    }
   }
 });
 process.on('SIGTERM', () => {

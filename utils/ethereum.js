@@ -489,7 +489,7 @@ exports.deployRaw = async(contractName, abi, args, nonceDELETEME) => {
             gasPrice: web3.utils.toHex(2000000000),
             data: deployableBytecode,
             from: web3.utils.toHex(acct.address),
-            chainId: web3.utils.toHex(config.chaidId),
+            chainId: web3.utils.toHex(config.chainId),
           };
           sendRaw(rawTx, privKey.slice(2)).then((hash) => {
             resolve(hash);
@@ -547,8 +547,8 @@ exports.configureOwnerCache = async() => {
     } else {
       let privKey = crypt.decrypt(user.keycrypt, config.owner + config.ownerSalt + config.aesSalt);
       let runtimeKeyCrypt  = crypt.encrypt(privKey, config.owner+"runtime" + config.ownerSalt + config.aesSalt);
-      await keyCache.keyCacheSet(config.owner + "runtime", runtimeKeyCrypt);
-      await keyCache.keyCacheSet(config.owner + "runtimepubkey", user.pubkey);
+      await keyCache.keyCacheSet(config.owner + "runtime", runtimeKeyCrypt, 0);
+      await keyCache.keyCacheSet(config.owner + "runtimepubkey", user.pubkey, 0);
       console.log(config.owner + "runtimepubkey: " + user.pubkey);
       let out = await keyCache.keyCacheGet(config.owner + "runtimepubkey");
       console.log(out)

@@ -216,6 +216,7 @@ exports.mineWithSnekRoute = async (req, res, next) => {
 }
 
 exports.mineRoute = async (req, res, next) => {
+  console.log("mineroute")
   try {
     let txdata = await validateTransactionForm(req, res);
     if(txdata){

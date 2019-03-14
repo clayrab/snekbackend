@@ -116,9 +116,7 @@ exports.getMiningSnekPrice = async(user) => {
   });
 }
 exports.getBalance = async(user) => {
-  console.log("get snek balance for: " + user.pubkey)
   let snekContract = await ethereum.getContract("snekCoinToken");
-  let method = snekContract.methods.balanceOf(user.pubkey);
   return await snekContract.methods.balanceOf(user.pubkey).call(function(error, result){
     if(error) {
       throw error;

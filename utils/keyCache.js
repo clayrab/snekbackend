@@ -63,17 +63,28 @@ const keyCache = new NodeCache({
   errorOnMissing: false,
 });
 //exports.keyCache = keyCache;
-exports.keyCacheSet = async(key, value) => {
+exports.keyCacheSet = async(key, value, ttl = -1) => {
   return await new Promise((resolve, reject) => {
-    keyCache.set(key, value, async( err, success ) => {
-      if(err){
-        reject(err);
-      } else if(!success){
-        reject("Error storing key.");
-      } else {
-        resolve(value);
-      }
-    });
+    if(ttl === -1){
+      keyCache.set(key, value, async( err, success ) => {
+        if(err){
+          reject(err);
+        } else if(!success){
+          reject("Error storing key.");
+        } else {
+          resolve(value);
+        }
+      });
+    } else
+      keyCache.set(key, value, ttl, async( err, success ) => {
+        if(err){
+          reject(err);
+        } else if(!success){
+          reject("Error storing key.");
+        } else {
+          resolve(value);
+        }
+      });
   }).catch(err => {throw err});
 }
 exports.keyCacheGet = async(key) => {
