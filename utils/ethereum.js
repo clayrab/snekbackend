@@ -72,8 +72,10 @@ let markTransaction = async(chainEvent) => {
       return;
     }
   }
+  //if(chainEvent.type ==)
   console.log("Transaction not found in database. Data consistency error. This must be investigated.");
   console.log("chainevent txid: " + chainEvent.txid)
+  console.log("chainEvent.type: " + chainEvent.type)
 }
 
 let syncPastEvents = async(firstUnsyncedBlockNumber, lastBlockNumber, eventType) => {

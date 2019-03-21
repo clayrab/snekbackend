@@ -122,7 +122,7 @@ let UserModel = models.loadSchema('user', {
     keycrypt      : "varchar",
     unredeemed    : "int",
     mineMax       : "int",
-    mineUpgraded  : "boolean", //bitmask
+    mineUpgrades  : "int", //bitmask
     purchasedGames: { type: "map", typeDef: "<varchar, int>" },
     haul          : "int",
     gamecount     : "int",

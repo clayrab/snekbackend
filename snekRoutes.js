@@ -34,7 +34,7 @@ exports.createTransactionRoute = async (req, res, next) => {
   }
 }
 let saveUserAfterMining = async(dbUser, minedAmount) => {
-  dbUser.mineUpgraded = false;
+  dbUser.mineUpgrades = 0;
   dbUser.haul = dbUser.haul - minedAmount;
   dbUser.unredeemed = dbUser.unredeemed - minedAmount;
   // We don't want to do this, but the experience is a bit strange.
@@ -319,8 +319,17 @@ let getPowerupsPriceTotal = async(req) => {
   }
   return total;
 }
-let getUpgradedMinePrice = async(req) => {
-  let price = await utils.find(models.instance.price, {name: "upgrademine"});
+let getSnkDynamitePrice = async(req) => {
+  let price = await utils.find(models.instance.price, {name: "snkdynamite"});
+  if(price){
+    return price.value;
+  } else {
+    return -1;
+  }
+}
+
+let getEthDynamitePrice = async(req) => {
+  let price = await utils.find(models.instance.price, {name: "ethdynamite"});
   if(price){
     return price.value;
   } else {
@@ -372,14 +381,16 @@ let givePowerups = async(req) => {
   await utils.save(userPowerups);
   return userPowerups;
 }
-let giveUpgradedMine = async(req) => {
+//upgradeFlags: 1=paid snek, 2=paid eth, 4=???
+let giveUpgradedMine = async(req, upgradeFlag) => {
   return await new Promise(async(resolve, reject) => {
     try {
       utils.findOne(models.instance.user, {pubkey: req.user.pubkey}).then((user) => {
-        if(user.mineUpgraded) {
+        if(user.mineUpgrades & upgradeFlag) {
           throw "mine is already upgraded";
         }
-        user.mineUpgraded = true;
+        user.mineUpgrades = user.mineUpgrades | upgradeFlag;
+
         utils.save(user).then(() => {
           resolve(user);
         }).catch(err => {
@@ -478,22 +489,66 @@ exports.buyUpgradedMineRoute = async (req, res, next) => {
     let txdata = await validateTransactionForm(req, res);
     if(txdata){
       if(txdata.type == "SNK"){
-        let price = await getUpgradedMinePrice(req);
+        let price = await getSnkDynamitePrice(req);
+        console.log("SNK")
+        console.log(price)
         let sentPrice = parseInt(txdata.amount, 10);
+        console.log(sentPrice)
         if(sentPrice == price) {
           await savePurchase(req, txdata, sentPrice);
           let contract = await utils.mustFind(models.instance.contract, {name: "snekCoinToken"});
-          await ethereum.sendEth(req.user, contract.address, txdata.amount, "onSent");
+          let txhash = await snek.transferSnek(req.user, contract.address, txdata.amount);
+          let newtx = new models.instance.transaction({
+            pubkey: req.user.pubkey,
+            txhash: txhash,
+            time: (new Date().toISOString()),
+            type: "snk",
+            from: req.user.pubkey,
+            to: contract.address,
+            amount: models.datatypes.Long.fromNumber(price),
+            fee: null,
+            pending: true,
+          });
+          await utils.save(newtx);
           await clearTransaction(req);
-          let user = await giveUpgradedMine(req);
-          utils.ok200({user: user}, res);
+          let user = await giveUpgradedMine(req, 1);
+          utils.ok200({user: user, txhash: txhash}, res);
         } else if(sentPrice> price){
           utils.error500("Amount paid is too high.", res);
         } else {
           utils.error500("Amount paid is too low.", res);
         }
-      } else {
-        utils.error500("Upgrading Mine must be paid for with SNK.", res);
+      } else if(txdata.type == "ETH"){
+        utils.error500("Not supported yet.", res);
+        // let price = await getEthDynamitePrice(req);
+        // let sentPrice = parseInt(txdata.amount, 10);
+        // if(sentPrice == price) {
+        //   await savePurchase(req, txdata, sentPrice);
+        //   let contract = await utils.mustFind(models.instance.contract, {name: "snekCoinToken"});
+        //   await ethereum.sendEth(req.user, contract.address, txdata.amount, "onSent");
+        //   let newtx = new models.instance.transaction({
+        //     pubkey: req.user.pubkey,
+        //     txhash: txhash,
+        //     time: (new Date().toISOString()),
+        //     type: "eth",
+        //     from: req.user.pubkey,
+        //     to: req.body.to,
+        //     amount: models.datatypes.Long.fromNumber(amount),
+        //     fee: null,
+        //     pending: true,
+        //   });
+        //   await utils.save(newtx);
+        //
+        //
+        //   await clearTransaction(req);
+        //   let user = await giveUpgradedMine(req, 2);
+        //   utils.ok200({user: user}, res);
+        // } else if(sentPrice> price){
+        //   utils.error500("Amount paid is too high.", res);
+        // } else {
+        //   utils.error500("Amount paid is too low.", res);
+        // }
+        // utils.error500("Upgrading Mine must be paid for with SNK.", res);
       }
     } else {
       utils.error500("Unknown error processing transaction request.", res);
@@ -508,10 +563,12 @@ exports.buyUpgradedMineRoute = async (req, res, next) => {
     }
   }
 }
-
 exports.buySuperGameRoute = async (req, res, next) => {
   try {
     let txdata = await validateTransactionForm(req, res);
+    // if(!(req.body.superScatter || req.body.superBlock)){
+    //   throw "must provide type of supergame: superScattor or superBlock";
+    // }
     if(txdata){
       if(txdata.type == "ETH"){
         let price = await getSuperGamesPrice(req);
@@ -520,6 +577,19 @@ exports.buySuperGameRoute = async (req, res, next) => {
           await savePurchase(req, txdata, sentPrice);
           let contract = await utils.mustFind(models.instance.contract, {name: "snekCoinToken"});
           await ethereum.sendEth(req.user, contract.address, txdata.amount, "onSent");
+          // TODO
+          // let newtx = new models.instance.transaction({
+          //   pubkey: req.user.pubkey,
+          //   txhash: txhash,
+          //   time: (new Date().toISOString()),
+          //   type: "eth",
+          //   from: req.user.pubkey,
+          //   to: req.body.to,
+          //   amount: models.datatypes.Long.fromNumber(amount),
+          //   fee: null,
+          //   pending: true,
+          // });
+          // await utils.save(newtx);
           await clearTransaction(req);
           let user = await giveSuperGame(req);
           utils.ok200({user: user}, res);
@@ -556,6 +626,19 @@ exports.buyPowerupsRoute = async (req, res, next) => {
           await savePurchase(req, txdata, sentPrice);
           let contract = await utils.mustFind(models.instance.contract,{name: "snekCoinToken"});
           await ethereum.sendEth(req.user, contract.address, txdata.amount, "onSent");
+          // TODO
+          // let newtx = new models.instance.transaction({
+          //   pubkey: req.user.pubkey,
+          //   txhash: txhash,
+          //   time: (new Date().toISOString()),
+          //   type: "eth",
+          //   from: req.user.pubkey,
+          //   to: req.body.to,
+          //   amount: models.datatypes.Long.fromNumber(amount),
+          //   fee: null,
+          //   pending: true,
+          // });
+          // await utils.save(newtx);
           await clearTransaction(req);
           let powerups = await givePowerups(req);
           utils.ok200({powerups: powerups}, res);
@@ -702,7 +785,8 @@ exports.setAllPriceRoute = async (req, res, next) => {
   await setPrice("ghost", 5*pelletValue);
   await setPrice("pellettail", 5*pelletValue);
   await setPrice("superpellets", 5*pelletValue);
-  await setPrice("upgrademine", 200); //SNK
+  await setPrice("snkdynamite", 200); //SNK
+  await setPrice("ethdynamite", 200); //SNK
   await setPrice("supergame", weiPerEth/100);
   await setOnchainPrice("haulgame", weiPerEth/1000);
   await setOnchainPrice("haulmine", 300); //SNK
@@ -737,7 +821,8 @@ let getPrices = async() => {
   prices.superpellets = (await utils.find(models.instance.price, {name: "superpellets"})).value;
   // prices.lvlsnkPrice = (await utils.find(models.instance.price, {name: "lvlsnk"})).value;
   // prices.lvlethPrice = (await utils.find(models.instance.price, {name: "lvleth"})).value;
-  prices.upgradeMine = (await utils.find(models.instance.price, {name: "upgrademine"})).value;
+  prices.snkdynamite = (await utils.find(models.instance.price, {name: "snkdynamite"})).value;
+  prices.ethdynamite = (await utils.find(models.instance.price, {name: "ethdynamite"})).value;
   prices.superGame = (await utils.find(models.instance.price, {name: "supergame"})).value;
   prices.gasPrice = await web3.eth.getGasPrice();
   return prices;
@@ -791,7 +876,7 @@ let getUserDetails = async(req, dbUser) => {
       haul: dbUser.haul,
       gamecount: dbUser.gamecount,
       totalWinnings: dbUser.totalWinnings,
-      mineUpgraded: dbUser.mineUpgraded,
+      mineUpgrades: dbUser.mineUpgrades,
       transactions: transactions,
     };
     return data;

@@ -83,7 +83,7 @@ exports.transferSnek = async(user, to, howMany) => {
   console.log("gasprice: " + gasPrice)
   let method = snekContract.methods.transfer(to, howMany);
   let options = {
-    nonce: web3.utils.toHex(nonce) + 1,
+    //nonce: web3.utils.toHex(nonce) + 1,
     from: user.pubkey,
     gas: 21000,
     gasPrice: gasPrice,
