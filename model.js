@@ -16,86 +16,26 @@ const config = require("./utils/config.js");
 //         type: "set",
 //         typeDef: "<varchar>"
 //     }
-// let port = 9042;
-// let host = '127.0.0.1';
-// let keyspace = 'sc';
-
+// ************************ MODEL  ************************
 //        price
-//          name      : "varchar",
-//          value     : "bigint",
 //          key:["name"],
 //        purchase
-//          username      : "varchar",
-//          type          : "varchar",
-//          value         : "bigint",
-//          details       : "varchar",
 //          key:["username", "type"],
 //        user
-//          pubkey        : "varchar",
-//          name          : "varchar",
-//          pwcrypt       : "varchar",
-//          keycrypt      : "varchar",
-//          unredeemed    : "int",
-//          mineMax       : "int",
-//          mineUpgraded  : "boolean", //bitmask
-//          purchasedGames: { type: "map", typeDef: "<varchar, int>" },
-//          haul          : "int",
-//          gamecount     : "int",
-//          totalWinnings : "int",
 //          key:["pubkey"],
-       // usergames
-       //   pubkey    : "varchar",
-       //   gameids   : { type: "list", typeDef: "<varchar>" },
-       //   key:["pubkey"],
 //        userpowerups
-//          pubkey    : "varchar",
-//          powerups   : { type: "map", typeDef: "<varchar, int>" },
 //          key:["pubkey"],
 //        game
-//          pubkey    : "varchar",
-//          time      : "timestamp",
-//          level     : "int",
-//          score     : "int",
-//          powerups  : "int",
 //          key:[["pubkey"], "time"],
 //        transaction
-//          pubkey    : "varchar",
-//          txhash    : "varchar",
-//          time      : "timestamp",
-//          type      : "varchar",
-//          from      : "varchar",
-//          to        : "varchar",
-//          amount    : "bigint",
-//          fee       : "bigint",
 //          key:[["pubkey"], "time"],
 //        usermap
-//          name      : "varchar",
-//          pubkey    : "varchar",
 //          key:["name"]
 //        chainevent
-//          pubkey        : "varchar",
-//          txid          : "varchar",
-//          type          : "varchar",
-//          blocknumber   : "int",
-//          blockhash     : "varchar",
-//          timesReorged  : "int",
-//          distReorged   : "int",
 //          key: ["pubkey","txid"]
-       // userchainevents
-       //   userpubkey    : "varchar",
-       //   chainevents   : { type: "set", typeDef: "<varchar>"}
-       //   key: ["userpubkey"]
 //        contract
-//          name          : "varchar",
-//          owner         : "varchar",
-//          address       : "varchar",
-//          abi           : "varchar",
-//          bytecode      : "varchar",
 //          key: ["name"]
 //        block
-//          number          : "int",
-//          hashid          : "varchar",
-//          timesReorged    : "int",
 //          key: ["number"],
 
 //          ***** BEGIN FILE *****
@@ -245,6 +185,7 @@ let TransactionModel = models.loadSchema('transaction', {
     to        : "varchar",
     amount    : "bigint",
     fee       : "bigint",
+    pending   : "boolean",
   },
   key:[["pubkey"], "time"],
 });
@@ -274,7 +215,7 @@ let ChainEventModel = models.loadSchema('chainevent', {
     timesReorged  : "int",
     distReorged   : "int",
   },
-  key: ["pubkey"]
+  key: ["pubkey","txid"]
 });
 
 ChainEventModel.syncDB(function(err, result) {

@@ -19,6 +19,7 @@ const web3 = require("./utils/web3Instance.js").web3;
 const socketIo = require("socket.io");
 
 let app = express();
+const server = http.createServer(app);
 
 let port = 3002;
 const emitSeconds = async(socket) => {
@@ -29,24 +30,51 @@ const emitSeconds = async(socket) => {
     console.error(`Error: ${error.code}`);
   }
 };
+const io = socketIo(server);
+server.listen(port, () => {
+  console.log(`websocket open on port ${port}`)
+});
+io.on("connection", async(socket) => {
+  console.log("***** New client connected *****");
+  // console.log(socket.handshake.query.pubkey);
+  // console.log(ethereum.websockets)
+  ethereum.websockets[socket.handshake.query.pubkey] = socket;
+  //await keyCache.keyCacheSet("socketID" + socket.handshake.query.pubkey.substring(0,12), socket);
+  socket.on("disconnect", () => {
+    console.log("Client disconnected");
+  });
+});
+app.listen(3001, async() => {
+  //let validDB = utils.validateModel();
+  //console.log("validdb: " + validDB);
+  // if(!(await ethereum.paritySyncStatus())){
+  //   throw "parity is not synched";
+  // }
+  let syncing = await ethereum.getSyncing();
+  if(syncing){
+    console.log("***** parity is not synched! *****")
+    closeServer();
+  } else {
+    try {
+      console.log("****** parity OK ******")
+      console.log("****** networkID: " + (await web3.eth.net.getId()) + " ******");
+      console.log("****** checkRootBlock ******");
+      await ethereum.checkRootBlock();
+      console.log("****** configureOwnerCache ******");
+      await ethereum.configureOwnerCache();
+      //await ethereum.resyncAllPastEvents(); // use once if chainevent table is dropped or truncated.
+      console.log("****** synchronize ******");
+      await ethereum.synchronize();
+      console.log('****** Listening on port 3001! ******');
+    } catch(err) {
+      console.log(err);
+      console.log("Error during startup! Shutting Down!");
+      closeServer();
+    }
+  }
+});
 
-const server = http.createServer(app);
-// const io = socketIo(server);
-// server.listen(port, () => console.log(`socket open on port ${port}`));
-// io.on("connection", (socket) => {
-//
-//   console.log("New client connected");
-//   setInterval(() => {
-//       emitSeconds(socket)
-//     },
-//     900
-//   );
-//   socket.on("disconnect", () => {
-//     console.log("Client disconnected");
-//   });
-// });
 module.exports = app;
-
 app.disable('x-powered-by');
 // https://expressjs.com/en/advanced/best-practice-security.html
 app.use(passport.initialize());
@@ -136,9 +164,9 @@ app.use(function(err, req, res, next) {
     res.send({error: err});
   }
 });
-server.on('listening', async () => {
-  //console.log("listening")
-});
+// server.on('listening', async () => {
+//   //console.log("listening")
+// });
 let closeServer = () => {
   server.close(function () {
     console.log("***** Closed all connections ***** ");
@@ -151,37 +179,6 @@ let closeServer = () => {
     process.exit(1);
   }, 5*1000);
 }
-server.listen(3001, async() => {
-  //let validDB = utils.validateModel();
-  //console.log("validdb: " + validDB);
-  // if(!(await ethereum.paritySyncStatus())){
-  //   throw "parity is not synched";
-  // }
-  let syncing = await ethereum.getSyncing();
-  if(syncing){
-    console.log("***** parity is not synched! *****")
-    closeServer();
-  } else {
-    try {
-      console.log("****** parity OK ******")
-      console.log("****** networkID: " + (await web3.eth.net.getId()) + " ******");
-      console.log("****** checkRootBlock ******");
-      await ethereum.checkRootBlock();
-      console.log("****** synchronize ******");
-      await ethereum.synchronize();
-      console.log("****** subscribe ******");
-      await ethereum.subscribe();
-      console.log("****** configureOwnerCache ******");
-      await ethereum.configureOwnerCache();
-      //await ethereum.resyncAllPastEvents(); // use once if chainevent table is dropped or truncated.
-      console.log('****** Listening on port 3001! ******');
-    } catch(err) {
-      console.log(err);
-      console.log("Error during startup! Shutting Down!");
-      closeServer();
-    }
-  }
-});
 process.on('SIGTERM', () => {
   console.info('SIGTERM signal received.');
   console.log('Closing http server.');

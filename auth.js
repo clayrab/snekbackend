@@ -16,6 +16,37 @@ const web3 = require("./utils/web3Instance.js").web3;
 
 exports.saltRounds = 10;
 
+exports.passwordStrategy = new LocalStrategy(
+  {
+    usernameField: 'user',
+    passwordField: 'pw',
+  },
+  async(username, password, done) => {
+    try {
+      let usermap = await utils.mustFind(models.instance.usermap, {name: username});
+      let user = await utils.mustFind(models.instance.user, {pubkey: usermap.pubkey});
+      let res = await crypt.bcryptCompare(password, user.pwcrypt);
+      if(!res) {
+        done("did not pass", false, {message: 'Incorrect password.'});
+      } else {
+        done(null, user);
+        //done(null, {name: user.name, pubkey: user.pubkey, randomSecret: randomSecret});
+      }
+    } catch(err) {
+      return done(err);
+    }
+  }
+);
+
+exports.jwtStrategy = new JwtStrategy({
+    secretOrKey: config.jwtSalt,
+    jwtFromRequest: ExtractJwt.fromAuthHeaderWithScheme('JWT'),
+  },
+  async(jwt_payload, done) => {
+    let user = await utils.mustFind(models.instance.user, {pubkey: jwt_payload.pubkey});
+    done(null, {name: user.name, pubkey: jwt_payload.pubkey, randomSecret: jwt_payload.randomSecret, });
+  }
+);
 exports.changePasswordRoute = async (req, res, next) => {
   try {
     if(!req.body.user || !req.body.pw || !req.body.newpw){
@@ -228,36 +259,3 @@ exports.loginRoute = function(req, res, next) {
 //     }
 //   }
 // );
-exports.passwordStrategy = new LocalStrategy(
-  {
-    usernameField: 'user',
-    passwordField: 'pw',
-  },
-  async(username, password, done) => {
-    try {
-      let usermap = await utils.mustFind(models.instance.usermap, {name: username});
-      let user = await utils.mustFind(models.instance.user, {pubkey: usermap.pubkey});
-      let res = await crypt.bcryptCompare(password, user.pwcrypt);
-      if(!res) {
-        done("did not pass", false, {message: 'Incorrect password.'});
-      } else {
-        done(null, user);
-        //done(null, {name: user.name, pubkey: user.pubkey, randomSecret: randomSecret});
-      }
-    } catch(err) {
-      return done(err);
-    }
-  }
-);
-
-exports.jwtStrategy = new JwtStrategy({
-    secretOrKey: config.jwtSalt,
-    jwtFromRequest: ExtractJwt.fromAuthHeaderWithScheme('JWT'),
-  },
-  async(jwt_payload, done) => {
-    let user = await utils.mustFind(models.instance.user, {pubkey: jwt_payload.pubkey});
-    //user.randomSecret = jwt_payload.randomSecret;
-    //done(null, user);
-    done(null, {name: user.name, pubkey: jwt_payload.pubkey, randomSecret: jwt_payload.randomSecret});
-  }
-);

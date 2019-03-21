@@ -50,39 +50,42 @@ exports.getGasPrice = async() => {
   }
   return gasPrice;
 }
-// exports.paritySyncStatus = async() => {
-//   try {
-//     let block = await web3.eth.getBlock(config.rootBlockNumber);
-//     if(!block){
-//       return false;
-//     }
-//     return true;
-//   } catch(err){
-//     return false;
-//   }
-// }
 
-exports.subscribe = async() => {
-  // var subscription = web3.eth.subscribe('newBlockHeaders', function(error, result){
-  //   if (error) {
-  //     throw error;
-  //   }
-  // })
-  // .on("data", function(blockHeader){
-  //   exports.synchronize();
-  // });
-//  .on("error", console.error);
+exports.websockets = {};
+let markTransaction = async(chainEvent) => {
+  console.log("markTransaction")
+  let dbTxs = await utils.findAll(models.instance.transaction, {pubkey: chainEvent.pubkey});
+  console.log(chainEvent.txid)
+  for (let dbTx of dbTxs) {
+    if(dbTx.txhash === chainEvent.txid){
+      console.log("Tx found.")
+      dbTx.pending = false;
+      await utils.save(dbTx);
+
+      //let socket = await keyCache.keyCacheGet("socketID" + socket.handshake.query.pubkey);
+      //socket.emit("MINED", dbTx.txid);
+      let socket = exports.websockets[chainEvent.pubkey];
+      if(socket) {
+        console.log("emit")
+        socket.emit("MINED", dbTx.txid);
+      }
+      return;
+    }
+  }
+  console.log("Transaction not found in database. Data consistency error. This must be investigated.");
+  console.log("chainevent txid: " + chainEvent.txid)
 }
-let syncPastEvents = async(lastSyncedBlockNumber, eventType) => {
+
+let syncPastEvents = async(firstUnsyncedBlockNumber, lastBlockNumber, eventType) => {
   let snekTokenContract = await exports.getContract("snekCoinToken");
   if(!snekTokenContract) {
     console.log("************************ Contracts not deployed. Please deploy!!!!! ************************")
   } else {
-    console.log("sync past events")
+    //console.log("sync past events")
     await snekTokenContract.getPastEvents(eventType, {
-        //fromBlock: lastSyncedBlockNumber + 1,
-        fromBlock: lastSyncedBlockNumber,
-        //toBlock: lastBlockNumber,
+        //fromBlock: firstUnsyncedBlockNumber + 1,
+        fromBlock: firstUnsyncedBlockNumber,
+        toBlock: lastBlockNumber,
       },
       async(error, events) => {
         if(error) {
@@ -90,18 +93,15 @@ let syncPastEvents = async(lastSyncedBlockNumber, eventType) => {
           console.log(error);
           throw error;
         } else {
-          console.log("events.length: "+ events.length);
+          if(events.length > 0){
+            console.log("Found " + events.length + " " + eventType + " events.");
+          }
           for(let i = 0; i < events.length; i++) {
             //let userChainEvents = await utils.mustFind(models.instance.userchainevents, {userpubkey: events[i].returnValues.sender});
             let chainEvent = await utils.find(models.instance.chainevent, {txid: events[i].transactionHash});
             if(chainEvent == null) {
               // new event
-              // if(!userChainEvents.chainevents) {
-              //   userChainEvents.chainevents = [events[i].transactionHash];
-              // } else {
-              //   userChainEvents.chainevents.push(events[i].transactionHash);
-              // }
-              //await utils.save(userChainEvents;;
+              console.log("new chain event")
               let sender = "0x0000000000000000000000000000000000000000"; // creation of contract creates a Transfer tx with no sender
               if(events[i].returnValues && events[i].returnValues.sender){
                 sender = events[i].returnValues.sender;
@@ -116,24 +116,15 @@ let syncPastEvents = async(lastSyncedBlockNumber, eventType) => {
                 distReorged: 0,
               });
               await utils.save(newChainEvent);
+              await markTransaction(newChainEvent);
             } else {
               // reorged event
-              // should already be in userchainevents...
-              // let found = false;
-              // for(let j = 0; j < userChainEvents.chainevents.length; j++) {
-              //   if(userChainEvents.chainevents[j] == events[i].transactionHash) {
-              //     found = true;
-              //     break;
-              //   }
-              // }
-              // if(!found) {
-              //   throw "Event not found in userchainevent. Database consistency error.";
-              // }
               if(chainEvent.blockhash != events[i].blockHash) {
                 chainEvent.timesReorged = chainEvent.timesReorged + 1;
-                let distanceReorged = chainEvent.blocknumber - lastSyncedBlockNumber;
+                let distanceReorged = chainEvent.blocknumber - firstUnsyncedBlockNumber;
                 chainEvent.distReorged = chainEvent.distReorged + distanceReorged;
                 await utils.save(chainEvent);
+                await markTransaction(chainEvent);
               }
             }
           }
@@ -151,12 +142,14 @@ let isBlockSynced = async(blockNumber) => {
       return true;
     }
   }
-  return false
+  return false;
 }
 
 findLastSyncedBlockBinarySearch = async(start, end) => {
   let mid = Math.floor((end + start)/2);
-  if(end - 1 === mid ){ return isBlockSynced(mid)? mid: end;}
+  if(end - 1 === mid ){
+    return isBlockSynced(mid) ? mid : end;
+  }
   console.log("binary searching at blocknumber: " + mid);
   if(await isBlockSynced(mid)){
     return findLastSyncedBlockBinarySearch(mid, end);
@@ -164,7 +157,19 @@ findLastSyncedBlockBinarySearch = async(start, end) => {
     return findLastSyncedBlockBinarySearch(start, mid);
   }
 }
-
+findReasonableFirstBlock = async(lastBlockNumber) => {
+  // 15 sec blocks
+  let isSynced = await isBlockSynced(lastBlockNumber);
+  if(isSynced) {
+    return lastBlockNumber;
+  }
+  let recentSyncedBlock = lastBlockNumber - 1;
+  while(!isSynced){
+    recentSyncedBlock -= (lastBlockNumber - recentSyncedBlock); // Look twice as far back
+    isSynced = await isBlockSynced(recentSyncedBlock);
+  }
+  return recentSyncedBlock;
+}
 exports.synchronize = async() => {
   // on reorg or startup
   // find the latest known block
@@ -172,102 +177,92 @@ exports.synchronize = async() => {
   // get past Events from last known block to new latest block and process
   // confirm latest is still latest and subscribe to events
   // TODO: get gaslimit Here?
-  console.log("syncing");
-  let lastBlock = await web3.eth.getBlock('latest');
-  console.log("latest block: " + lastBlock.number)
-  //let block = lastBlock;
-  // Find the latest block we have synced with
-  let lastSyncedBlockNumber = lastBlock.number;//await web3.eth.getBlockNumber().then((value) => {return value;});//
-  console.log("searching for last synced block...");
-  lastSyncedBlockNumber = await findLastSyncedBlockBinarySearch(config.rootBlockNumber, lastBlock.number);
-
-  // while(true) {
-  //   //if(lastSyncedBlockNumber%1000 == 0){
-  //     console.log("searching... " + lastSyncedBlockNumber);
-  //   //}
-  //   let previousBlock = await utils.find(models.instance.block, {number: lastSyncedBlockNumber});
-  //   try{
-  //     if(previousBlock) {
-  //       let ethBlock = await web3.eth.getBlock(lastSyncedBlockNumber);
-  //       if(previousBlock.hashid == ethBlock.hash) {
-  //         break;
-  //       }
-  //     }
-  //     lastSyncedBlockNumber--;
-  //   } catch(err){
-  //     console.log("could not find block lastSyncedBlockNumber: " + lastSyncedBlockNumber);
-  //     throw err;
-  //   }
-  // }
-
-  console.log("Syncing new blocks to DB... " + lastSyncedBlockNumber + " to " + lastBlock.number);
-  for(let k = lastSyncedBlockNumber + 1; k <= lastBlock.number; k++) {
-    if(k%1000 == 0){
-      console.log("syncing... " + k);
-    }
-    let reorgedBlock = await utils.find(models.instance.block, {number: k});
-    web3.eth.getBlock(k).then(async(newBlock) => {
-      if(!reorgedBlock){
-        // new block
-        reorgedBlock = new models.instance.block({
-          number: k,
-          hashid: newBlock.hash,
-          timesReorged: 0,
-        });
-      } else {
-        if(k%100 == 0){
-          console.log("reorged block: " + k);
-        }
-        // reorged block
-        reorgedBlock.timesReorged = reorgedBlock.timesReorged + 1;
-        reorgedBlock.hashid = newBlock.hash;
-      }
-      await utils.save(reorgedBlock);
-    }).catch(err => {
-      console.log("could not find block: " + k);
-      throw err;
-    });
-
-  }
-  // More blocks might be in Cassandra still with number greater than latest block
-  console.log("mark future reorged blocks in DB... ");
-  let syncBlockNumber = lastBlock.number;
-  while(true) {
-    if(lastSyncedBlockNumber%1000 == 0){
-      console.log("unsyncing... " + lastSyncedBlockNumber);
-    }
-    syncBlockNumber++;
-    let nextReorgedBlock = await utils.find(models.instance.block, {number: syncBlockNumber});
-    if(!nextReorgedBlock){
-      break;
+  try{
+    console.log("syncing");
+    let lastBlock = await web3.eth.getBlock('latest');
+    //console.log("latest block: " + lastBlock.number)
+    // Find the latest block we have synced with
+    let lastSyncedBlockNumber = lastBlock.number;//await web3.eth.getBlockNumber().then((value) => {return value;});//
+    //console.log("searching for last synced block...");
+    let startBlock = await findReasonableFirstBlock(lastBlock.number);
+    if(startBlock === lastBlock.number){
+      console.log("Already synced. " + lastBlock.number + ". No-op.")
     } else {
-      nextReorgedBlock.hashid = "reorged";
-      nextReorgedBlock.timesReorged = nextReorgedBlock.timesReorged + 1;
-      await utils.save(nextReorgedBlock);
+      //lastSyncedBlockNumber = await findLastSyncedBlockBinarySearch(config.rootBlockNumber, lastBlock.number);
+      console.log("Searching from " + startBlock + " to " + lastBlock.number);
+      lastSyncedBlockNumber = await findLastSyncedBlockBinarySearch(startBlock, lastBlock.number);
+      console.log("lastSyncedBlockNumber: " + lastSyncedBlockNumber);
+      //console.log("Syncing new blocks to DB... " + lastSyncedBlockNumber + " to " + lastBlock.number);
+      for(let k = lastSyncedBlockNumber + 1; k <= lastBlock.number; k++) {
+        web3.eth.getBlock(k).then(async(newBlock) => {
+          let reorgedBlock = await utils.find(models.instance.block, {number: k});
+          if(!reorgedBlock){
+            // new block
+            console.log("new block: " + k);
+            reorgedBlock = new models.instance.block({
+              number: k,
+              hashid: newBlock.hash,
+              timesReorged: 0,
+            });
+          } else {
+            console.log("reorged block: " + k);
+            // reorged block
+            reorgedBlock.timesReorged = reorgedBlock.timesReorged + 1;
+            reorgedBlock.hashid = newBlock.hash;
+          }
+          await utils.save(reorgedBlock);
+        }).catch(err => {
+          console.log("could not find block: " + k);
+          throw err;
+        });
+
+      }
+      // More blocks might be in Cassandra still with number greater than latest block
+      //console.log("mark future reorged blocks in DB... ");
+      let syncBlockNumber = lastBlock.number;
+      while(true) {
+        syncBlockNumber++;
+        let nextReorgedBlock = await utils.find(models.instance.block, {number: syncBlockNumber});
+        if(!nextReorgedBlock){
+          break;
+        } else {
+          nextReorgedBlock.hashid = "reorged";
+          nextReorgedBlock.timesReorged = nextReorgedBlock.timesReorged + 1;
+          await utils.save(nextReorgedBlock);
+        }
+      }
+      // Find past events and write them to the database
+      await syncPastEvents(lastSyncedBlockNumber + 1, lastBlock.number, "Mine");
+      await syncPastEvents(lastSyncedBlockNumber + 1, lastBlock.number, "MineWithSnek");
+      await syncPastEvents(lastSyncedBlockNumber + 1, lastBlock.number, "Paid");
+      await syncPastEvents(lastSyncedBlockNumber + 1, lastBlock.number, "SetOwner");
+      await syncPastEvents(lastSyncedBlockNumber + 1, lastBlock.number, "SetRoot");
+      await syncPastEvents(lastSyncedBlockNumber + 1, lastBlock.number, "ChangeMiningPrice");
+      await syncPastEvents(lastSyncedBlockNumber + 1, lastBlock.number, "ChangeMiningSnekPrice");
+      await syncPastEvents(lastSyncedBlockNumber + 1, lastBlock.number, "Transfer");
     }
+  } catch(err) {
+    console.log("***** Error during sync. Ignoring. *****");
+    console.log(err);
   }
-  // Find past events and write them to the database
-  await syncPastEvents(lastSyncedBlockNumber, "Mine");
-  await syncPastEvents(lastSyncedBlockNumber, "MineWithSnek");
-  await syncPastEvents(lastSyncedBlockNumber, "Paid");
-  await syncPastEvents(lastSyncedBlockNumber, "SetOwner");
-  await syncPastEvents(lastSyncedBlockNumber, "SetRoot");
-  await syncPastEvents(lastSyncedBlockNumber, "ChangeMiningPrice");
-  await syncPastEvents(lastSyncedBlockNumber, "ChangeMiningSnekPrice");
-  await syncPastEvents(lastSyncedBlockNumber, "Transfer");
-  console.log("****** synchronization success ******");
+  //console.log("****** synchronization complete ******");
+  // Schedule another sync in 8 seconds. Eth has 15 second blocks so 7.5 is
+  // the Nyquist frequency. 8 is close enough.
+  let interval = setTimeout(() => {
+    exports.synchronize();
+  }, 8000);
 }
 
 exports.resyncAllPastEvents = async() => {
-
-  await syncPastEvents(0, "Mine");
-  await syncPastEvents(0, "MineWithSnek");
-  await syncPastEvents(0, "Paid");
-  await syncPastEvents(0, "SetOwner");
-  await syncPastEvents(0, "SetRoot");
-  await syncPastEvents(0, "ChangeMiningPrice");
-  await syncPastEvents(0, "ChangeMiningSnekPrice");
-  await syncPastEvents(0, "Transfer");
+  let lastBlock = await web3.eth.getBlock('latest');
+  await syncPastEvents(0, lastBlock.number, "Mine");
+  await syncPastEvents(0, lastBlock.number, "MineWithSnek");
+  await syncPastEvents(0, lastBlock.number, "Paid");
+  await syncPastEvents(0, lastBlock.number, "SetOwner");
+  await syncPastEvents(0, lastBlock.number, "SetRoot");
+  await syncPastEvents(0, lastBlock.number, "ChangeMiningPrice");
+  await syncPastEvents(0, lastBlock.number, "ChangeMiningSnekPrice");
+  await syncPastEvents(0, lastBlock.number, "Transfer");
   console.log("****** synchronization success ******");
 }
 

@@ -70,6 +70,7 @@ exports.sendSnekRoute =  async (req, res, next) => {
             to: req.body.to,
             amount: models.datatypes.Long.fromNumber(amount),
             fee: null,
+            pending: true,
           });
           await utils.save(newtx);
           utils.ok200({txhash: txhash}, res);
@@ -122,6 +123,7 @@ exports.sendEthRoute = async (req, res, next) => {
             to: req.body.to,
             amount: models.datatypes.Long.fromNumber(amount),
             fee: null,
+            pending: true,
           });
           await utils.save(newtx);
           utils.ok200({txhash: txhash}, res);
@@ -189,6 +191,7 @@ exports.mineWithSnekRoute = async (req, res, next) => {
               to: null,
               amount: models.datatypes.Long.fromNumber(minableAmount),
               fee: models.datatypes.Long.fromNumber(price),
+              pending: true,
             });
             await utils.save(newtx);
             utils.ok200({txhash: txhash, user: usr,}, res);
@@ -255,14 +258,16 @@ exports.mineRoute = async (req, res, next) => {
               pubkey: req.user.pubkey,
               txhash: txhash,
               time: (new Date().toISOString()),
-              type: "mineWithSnek",
+              type: "mine",
               from: null,
               to: null,
               amount: models.datatypes.Long.fromNumber(minableAmount),
               fee: models.datatypes.Long.fromNumber(price),
+              pending: true,
             });
             await utils.save(newtx);
-            utils.ok200({txhash: txhash, user: usr,}, res);
+            let userData = await getUserDetails(req, usr);
+            utils.ok200({txhash: txhash, user: userData,}, res);
           }
         } else if(sentPrice > price){
           utils.error500("Amount paid is too high.", res);
@@ -616,7 +621,7 @@ exports.recordScoreRoute = async (req, res, next) => {
       score: howMany,
     });
     await utils.save(newGame);
-    utils.ok200({status : "OK", score: howMany, user: (await getUserBalances(req, user))}, res);
+    utils.ok200({status : "OK", score: howMany, user: (await getUserDetails(req, user))}, res);
   } catch(err) {
     next(err);
   }
@@ -769,13 +774,14 @@ exports.getTransactionsRoute  = async(req, res, next) => {
   let transactions = await utils.findAll(models.instance.transaction, {pubkey: req.user.pubkey});
   utils.ok200({transactions: transactions}, res);
 }
-let getUserBalances = async(req, dbUser) => {
-  console.log("getUserBalances")
+let getUserDetails = async(req, dbUser) => {
+  console.log("getUserDetails")
   try {
     let snekContract = await ethereum.getContract("snekCoinToken");
     let snekBal = await snek.getBalance(req.user);
     let ethBal = await ethereum.getBalance(req.user);
-    let balances = {
+    let transactions = await utils.findAll(models.instance.transaction, {pubkey: req.user.pubkey, });
+    let data = {
       eth: ethBal,
       snek: snekBal,
       pubkey: dbUser.pubkey,
@@ -786,8 +792,9 @@ let getUserBalances = async(req, dbUser) => {
       gamecount: dbUser.gamecount,
       totalWinnings: dbUser.totalWinnings,
       mineUpgraded: dbUser.mineUpgraded,
+      transactions: transactions,
     };
-    return balances;
+    return data;
   } catch(err) {
     throw err;
   }
@@ -796,7 +803,7 @@ exports.getUserRoute = async (req, res, next) => {
   console.log("getUserRoute")
   try {
     let user = await utils.mustFind(models.instance.user, {pubkey: req.user.pubkey});
-    let balances = await getUserBalances(req, user);
+    let balances = await getUserDetails(req, user);
     utils.ok200(balances, res);
   } catch(err) {
     next(err);
@@ -816,7 +823,6 @@ exports.createSnekTokenRoute = async(req, res, next) => {
   try {
     let owner = await utils.mustFind(models.instance.user, {pubkey: req.user.pubkey});
     let nonce = await web3.eth.getTransactionCount(owner.pubkey);
-    console.log("nonce:" + nonce);
     let snekCoin0_0_1 = await utils.find(models.instance.contract, {name: "snekCoin0_0_1"});
     let snekCoin0_0_1Address = null;
     if(snekCoin0_0_1){
