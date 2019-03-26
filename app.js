@@ -124,7 +124,8 @@ app.post('/sendEth', passport.authenticate('jwt', { session: false }), snekRoute
 app.post('/sendSnek', passport.authenticate('jwt', { session: false }), snekRoutes.sendSnekRoute);
 
 app.post('/setPrice', passport.authenticate('jwt', { session: false }), snekRoutes.setPriceRoute);
-app.post('/setAllPrices', passport.authenticate('jwt', { session: false }), snekRoutes.setAllPriceRoute);
+app.post('/setAllPrices', passport.authenticate('jwt', { session: false }), snekRoutes.setAllPricesRoute);
+app.post('/setAllLocalPrices', passport.authenticate('jwt', { session: false }), snekRoutes.setAllLocalPricesRoute);
 
 app.post('/createLocalUser', auth.createLocalUserRoute);
 app.post('/createLocalUserFromKey', auth.createLocalUserFromKeyRoute);

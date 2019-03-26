@@ -194,7 +194,8 @@ exports.mineWithSnekRoute = async (req, res, next) => {
               pending: true,
             });
             await utils.save(newtx);
-            utils.ok200({txhash: txhash, user: usr,}, res);
+            let userData = await getUserDetails(req, usr);
+            utils.ok200({txhash: txhash, user: userData,}, res);
           }
         } else if(sentPrice > price){
           utils.error500("Amount paid is too high.", res);
@@ -244,6 +245,11 @@ exports.mineRoute = async (req, res, next) => {
           options.gas = (await ethereum.estimateGas(req.user, method, options)) + 10000;
           let ethBal = await ethereum.getBalance(req.user);
           if(price + (options.gas * gasPrice) > ethBal){
+            console.log("Not enough ethereum to pay for fee and gas.")
+            console.log(ethBal)
+            console.log(price)
+            console.log(gasPrice)
+            console.log(options.gas)
             utils.error500("Not enough ethereum to pay for fee and gas.", res);
           }
 
@@ -512,7 +518,8 @@ exports.buyUpgradedMineRoute = async (req, res, next) => {
           await utils.save(newtx);
           await clearTransaction(req);
           let user = await giveUpgradedMine(req, 1);
-          utils.ok200({user: user, txhash: txhash}, res);
+
+          utils.ok200({user: (await getUserDetails(req, user)), txhash: txhash}, res);
         } else if(sentPrice> price){
           utils.error500("Amount paid is too high.", res);
         } else {
@@ -614,18 +621,17 @@ exports.buySuperGameRoute = async (req, res, next) => {
     }
   }
 }
-
 exports.buyPowerupsRoute = async (req, res, next) => {
   try {
     let txdata = await validateTransactionForm(req, res);
     if(txdata){
-      if(txdata.type == "ETH"){
+      if(txdata.type == "SNK"){
         let price = await getPowerupsPriceTotal(req);
         let sentPrice = parseInt(txdata.amount, 10);
         if(sentPrice == price) {
           await savePurchase(req, txdata, sentPrice);
           let contract = await utils.mustFind(models.instance.contract,{name: "snekCoinToken"});
-          await ethereum.sendEth(req.user, contract.address, txdata.amount, "onSent");
+          // await ethereum.sendEth(req.user, contract.address, txdata.amount, "onSent");
           // TODO
           // let newtx = new models.instance.transaction({
           //   pubkey: req.user.pubkey,
@@ -648,7 +654,7 @@ exports.buyPowerupsRoute = async (req, res, next) => {
           utils.error500("Amount paid is too low.", res);
         }
       } else {
-        utils.error500("Powerups must be paid for with ETH.", res);
+        utils.error500("Powerups must be paid for with SNK.", res);
       }
     } else {
       utils.error500("Unknown error processing transaction request.", res);
@@ -769,25 +775,38 @@ let getPrice = async(name) => {
     return -1;
   }
 }
-exports.setAllPriceRoute = async (req, res, next) => {
+let setAllLocalPrices = async() => {
+  let weiPerEth = 1000000000000000000;
+  let gigaWei = 1000000000; // 1 GWei
+  let miningGasCost = 93081; // approximate gas used to mine snek
+  let approxGasPrice = 5; //  Gas price early 2018 is ~8 Gwei
+  let pelletValue = 10;
+  await setPrice("minegas", 93081);
+  await setPrice("sendsnkgas", 21000);
+  await setPrice("Xbonus", 21000);
+  await setPrice("Ybonus", 21000);
+  //await setPrice("sendethgas", 93081);
+  await setPrice("goldpowerup", 5*pelletValue);
+  await setPrice("bluepowerup", 5*pelletValue);
+  await setPrice("purplepowerup", 5*pelletValue);
+  await setPrice("redpowerup", 5*pelletValue);
+  await setPrice("goldmultiplier", 5*pelletValue);
+  await setPrice("tnt", 200); //SNK
+  await setPrice("supergame", weiPerEth/1000);
+}
+exports.setAllLocalPricesRoute = async (req, res, next) => {
+  if(req.user.name != config.owner) {
+    throw "only owner can set prices";
+  }
+  await setAllLocalPrices();
+  utils.ok200({status: "OK"}, res);
+}
+exports.setAllPricesRoute = async (req, res, next) => {
   if(req.user.name != config.owner) {
     throw "only owner can set prices";
   }
   let weiPerEth = 1000000000000000000;
-  let gigaWei = 1000000000; // 1 GWei
-  let miningGasCost = 2746693; // approximate gas used to mine snek
-  let approxGasPrice = 5; //  Gas price early 2018 is ~8 Gwei
-  // Assume snek will be worth approximately the amount of gas needed to mine it
-  let pelletValue = miningGasCost * approxGasPrice * gigaWei/1000;
-  await setPrice("slowdown", 5*pelletValue);
-  await setPrice("shed", 5*pelletValue);
-  await setPrice("supershed", 5*pelletValue);
-  await setPrice("ghost", 5*pelletValue);
-  await setPrice("pellettail", 5*pelletValue);
-  await setPrice("superpellets", 5*pelletValue);
-  await setPrice("snkdynamite", 200); //SNK
-  await setPrice("ethdynamite", 200); //SNK
-  await setPrice("supergame", weiPerEth/100);
+  await setAllLocalPrices();
   await setOnchainPrice("haulgame", weiPerEth/1000);
   await setOnchainPrice("haulmine", 300); //SNK
   utils.ok200({status: "OK"}, res);
@@ -850,9 +869,7 @@ exports.setRootRoute = async (req, res, next) => {
 
 exports.getGamesRoute = async(req, res, next) => {
   console.log("getGames *********")
-  //0x627306090abaB3A6e1400e9345bC60c78a8BEf57
-  //let user = await utils.find(models.instance.game,{pubkey: req.user.pubkey});
-  let games = await utils.findAll(models.instance.game, {pubkey: req.user.pubkey, $limit: 50, });
+  let games = await utils.findAll(models.instance.game, {pubkey: req.user.pubkey, $orderby: { '$desc' :'time' }, $limit: 50, });
   utils.ok200({games: games}, res);
 }
 exports.getTransactionsRoute  = async(req, res, next) => {
