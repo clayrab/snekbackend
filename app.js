@@ -169,13 +169,10 @@ app.use(function(err, req, res, next) {
 // server.on('listening', async () => {
 //   //console.log("listening")
 // });
+
 let closeServer = () => {
   console.log("closeServer")
-  setTimeout( function () {
-    // this doesn't seem to work....
-    console.error("***** Could not close connections in time, forcefully shutting down!!! *****");
-    process.exit(1);
-  }, 5*1000);
+  clearTimeout(ethereum.syncInterval);
   server.close(function () {
     console.log("***** Closed all connections ***** ");
     console.log("***** Exiting ***** ");
