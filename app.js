@@ -170,16 +170,17 @@ app.use(function(err, req, res, next) {
 //   //console.log("listening")
 // });
 let closeServer = () => {
+  setTimeout( function () {
+    // this doesn't seem to work....
+    console.error("***** Could not close connections in time, forcefully shutting down!!! *****");
+    process.exit(1);
+  }, 5*1000);
   server.close(function () {
     console.log("***** Closed all connections ***** ");
     console.log("***** Exiting ***** ");
     process.exit(0);
     // Close db connections, etc.
   });
-  setTimeout( function () {
-    console.error("***** Could not close connections in time, forcefully shutting down!!! *****");
-    process.exit(1);
-  }, 5*1000);
 }
 process.on('SIGTERM', () => {
   console.info('SIGTERM signal received.');

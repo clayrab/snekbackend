@@ -172,6 +172,7 @@ findReasonableFirstBlock = async(lastBlockNumber) => {
   }
   return recentSyncedBlock;
 }
+exports.interval = null;
 exports.synchronize = async() => {
   // on reorg or startup
   // find the latest known block
@@ -250,7 +251,7 @@ exports.synchronize = async() => {
   //console.log("****** synchronization complete ******");
   // Schedule another sync in 8 seconds. Eth has 15 second blocks so 7.5 is
   // the Nyquist frequency. 8 is close enough.
-  let interval = setTimeout(() => {
+  exports.interval = setTimeout(() => {
     exports.synchronize();
   }, 8000);
 }
