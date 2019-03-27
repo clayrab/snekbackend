@@ -120,6 +120,7 @@ app.post('/buyUpgradedMine', passport.authenticate('jwt', { session: false }), s
 app.post('/buySuperGame', passport.authenticate('jwt', { session: false }), snekRoutes.buySuperGameRoute);
 app.post('/mine', passport.authenticate('jwt', { session: false }), snekRoutes.mineRoute);
 app.post('/mineWithSnek', passport.authenticate('jwt', { session: false }), snekRoutes.mineWithSnekRoute);
+app.post('/usePowerup', passport.authenticate('jwt', { session: false }), snekRoutes.usePowerupRoute);
 app.post('/sendEth', passport.authenticate('jwt', { session: false }), snekRoutes.sendEthRoute);
 app.post('/sendSnek', passport.authenticate('jwt', { session: false }), snekRoutes.sendSnekRoute);
 

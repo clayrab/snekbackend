@@ -96,7 +96,21 @@ exports.changePasswordRoute = async (req, res, next) => {
 exports.editProfileRoute = async (req, res, next) => {
   utils.ok200({status: "OK"}, res);
 }
-
+saveNewUser = async(username, address, pwhash, keycrypt) => {
+  let newuser = new models.instance.user({
+    name: username,
+    pubkey: address,
+    pwcrypt: pwhash,
+    keycrypt: keycrypt,
+    unredeemed: 0,
+    approved: 0,
+    mineMax: 10000,
+    haul: 0,
+    gamecount: 0,
+    totalhaul: 0,
+  });
+  await utils.save(newuser);
+}
 exports.createLocalUserRoute = async (req, res, next) => {
   // validate req.body.pw req.body.username
   if(!req.body.username || !req.body.pw){
@@ -118,19 +132,7 @@ exports.createLocalUserRoute = async (req, res, next) => {
     if(req.body.username === config.owner) {
       storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+config.ownerSalt+config.aesSalt);
     }
-    let newuser = new models.instance.user({
-      name: req.body.username,
-      pubkey: acct.address,
-      pwcrypt: storableHash,
-      keycrypt: storableKeyCrypt,
-      unredeemed: 0,
-      approved: 0,
-      mineMax: 1000,
-      haul: 0,
-      gamecount: 0,
-      totalhaul: 0,
-    });
-    await utils.save(newuser);
+    saveNewUser(req.body.username, acct.address, storableHash, storableKeyCrypt);
     let usermap = new models.instance.usermap({
       pubkey: acct.address,
       name: req.body.username,
@@ -163,19 +165,7 @@ exports.createLocalUserFromKeyRoute = async (req, res, next) => {
       storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+config.ownerSalt+config.aesSalt);
     }
     await utils.mustNotFind(models.instance.user, {pubkey: acct.address});
-    let newuser = new models.instance.user({
-      name: req.body.username,
-      pubkey: acct.address,
-      pwcrypt: storableHash,
-      keycrypt: storableKeyCrypt,
-      unredeemed: 0,
-      approved: 0,
-      mineMax: 1000,
-      haul: 0,
-      gamecount: 0,
-      totalhaul: 0,
-    });
-    await utils.save(newuser);
+    saveNewUser(req.body.username, acct.address, storableHash, storableKeyCrypt);
     let usermap = new models.instance.usermap({
       pubkey: acct.address,
       name: req.body.username,
