@@ -170,6 +170,7 @@ app.use(function(err, req, res, next) {
 //   //console.log("listening")
 // });
 let closeServer = () => {
+  console.log("closeServer")
   setTimeout( function () {
     // this doesn't seem to work....
     console.error("***** Could not close connections in time, forcefully shutting down!!! *****");
@@ -185,7 +186,8 @@ let closeServer = () => {
 process.on('SIGTERM', () => {
   console.info('SIGTERM signal received.');
   console.log('Closing http server.');
-  server.close(() => {
-    console.log('Http server closed.');
-  });
+  // server.close(() => {
+  //   console.log('Http server closed.');
+  // });
+  closeServer();
 });
