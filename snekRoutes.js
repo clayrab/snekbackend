@@ -874,7 +874,11 @@ let getUserDetails = async(req, dbUser) => {
     let snekBal = await snek.getBalance(req.user);
     let ethBal = await ethereum.getBalance(req.user);
     //let transactions = await utils.findAll(models.instance.transaction, {pubkey: req.user.pubkey, });
-    let powerups = await utils.findOne(models.instance.userpowerups, {pubkey: req.user.pubkey});
+    let userPowerups = await utils.findOne(models.instance.userpowerups, {pubkey: req.user.pubkey});
+    let powerups = {}
+    if(userPowerups !== null && userPowerups.powerups !== null){
+      powerups = userPowerups.powerups;
+    }
     let data = {
       eth: ethBal,
       snek: snekBal,
@@ -886,7 +890,7 @@ let getUserDetails = async(req, dbUser) => {
       gamecount: dbUser.gamecount,
       totalWinnings: dbUser.totalWinnings,
       mineUpgrades: dbUser.mineUpgrades,
-      powerups: powerups.powerups,
+      powerups: powerups,
       //transactions: transactions,
     };
     return data;
