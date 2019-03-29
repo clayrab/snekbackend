@@ -873,7 +873,7 @@ let getUserDetails = async(req, dbUser) => {
     let snekContract = await ethereum.getContract("snekCoinToken");
     let snekBal = await snek.getBalance(req.user);
     let ethBal = await ethereum.getBalance(req.user);
-    //let transactions = await utils.findAll(models.instance.transaction, {pubkey: req.user.pubkey, });
+    let transactions = await utils.findAll(models.instance.transaction, {pubkey: req.user.pubkey, });
     let userPowerups = await utils.findOne(models.instance.userpowerups, {pubkey: req.user.pubkey});
     let powerups = {}
     if(userPowerups !== null && userPowerups.powerups !== null){
