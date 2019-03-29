@@ -891,7 +891,7 @@ let getUserDetails = async(req, dbUser) => {
       totalWinnings: dbUser.totalWinnings,
       mineUpgrades: dbUser.mineUpgrades,
       powerups: powerups,
-      //transactions: transactions,
+      transactions: transactions,
     };
     return data;
   } catch(err) {

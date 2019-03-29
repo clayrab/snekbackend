@@ -171,7 +171,6 @@ app.use(function(err, req, res, next) {
 // });
 
 let closeServer = () => {
-  console.log("closeServer")
   clearTimeout(ethereum.syncInterval);
   server.close(function () {
     console.log("***** Closed all connections ***** ");
@@ -181,10 +180,6 @@ let closeServer = () => {
   });
 }
 process.on('SIGTERM', () => {
-  console.info('SIGTERM signal received.');
-  console.log('Closing http server.');
-  // server.close(() => {
-  //   console.log('Http server closed.');
-  // });
+  console.info('SIGTERM signal received. Closing server.');
   closeServer();
 });
