@@ -110,6 +110,7 @@ saveNewUser = async(username, address, pwhash, keycrypt) => {
     totalhaul: 0,
   });
   await utils.save(newuser);
+  return newuser;
 }
 exports.createLocalUserRoute = async (req, res, next) => {
   // validate req.body.pw req.body.username
@@ -132,7 +133,7 @@ exports.createLocalUserRoute = async (req, res, next) => {
     if(req.body.username === config.owner) {
       storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+config.ownerSalt+config.aesSalt);
     }
-    saveNewUser(req.body.username, acct.address, storableHash, storableKeyCrypt);
+    let newuser = saveNewUser(req.body.username, acct.address, storableHash, storableKeyCrypt);
     let usermap = new models.instance.usermap({
       pubkey: acct.address,
       name: req.body.username,
@@ -165,7 +166,7 @@ exports.createLocalUserFromKeyRoute = async (req, res, next) => {
       storableKeyCrypt = crypt.encrypt(acct.privateKey, req.body.username+config.ownerSalt+config.aesSalt);
     }
     await utils.mustNotFind(models.instance.user, {pubkey: acct.address});
-    saveNewUser(req.body.username, acct.address, storableHash, storableKeyCrypt);
+    let newuser = saveNewUser(req.body.username, acct.address, storableHash, storableKeyCrypt);
     let usermap = new models.instance.usermap({
       pubkey: acct.address,
       name: req.body.username,
