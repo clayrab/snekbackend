@@ -362,7 +362,6 @@ let givePowerup = async(req, userPowerups, name) =>{
 let givePowerups = async(req) => {
   let userPowerups = await utils.findOne(models.instance.userpowerups, {pubkey: req.user.pubkey});
   if(!userPowerups){
-    console.log("make new powerups")
     userPowerups = new models.instance.userpowerups({
       pubkey: req.user.pubkey,
       powerups: {},
