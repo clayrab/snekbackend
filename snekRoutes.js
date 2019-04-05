@@ -583,16 +583,16 @@ exports.buySuperGameRoute = async (req, res, next) => {
 exports.buyPowerupsRoute = async (req, res, next) => {
   try {
     let txdata = await validateTransactionForm(req, res);
-    if(req.body.goldpowerup != null && typeof(req.body.goldpowerup) == "number") {
+    if(req.body.goldpowerup === null || typeof(req.body.goldpowerup) != "number") {
       throw "Must provide goldpowerup";
     }
-    if(req.body.bluepowerup != null && typeof(req.body.bluepowerup) == "number") {
+    if(req.body.bluepowerup === null || typeof(req.body.bluepowerup) != "number") {
       throw "Must provide bluepowerup";
     }
-    if(req.body.purplepowerup != null && typeof(req.body.purplepowerup) == "number") {
+    if(req.body.purplepowerup === null || typeof(req.body.purplepowerup) != "number") {
       throw "Must provide purplepowerup";
     }
-    if(req.body.redpowerup != null && typeof(req.body.redpowerup) == "number") {
+    if(req.body.redpowerup === null || typeof(req.body.redpowerup) != "number") {
       throw "Must provide redpowerup";
     }
     if(txdata){
