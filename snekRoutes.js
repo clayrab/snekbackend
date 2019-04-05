@@ -875,7 +875,12 @@ let getUserDetails = async(req, dbUser) => {
     let ethBal = await ethereum.getBalance(req.user);
     let transactions = await utils.findAll(models.instance.transaction, {pubkey: req.user.pubkey, });
     let userPowerups = await utils.findOne(models.instance.userpowerups, {pubkey: req.user.pubkey});
-    let powerups = {}
+    let powerups = {
+       bluepowerup: 0,
+       goldpowerup: 0,
+       purplepowerup: 0,
+       redpowerup: 0,
+    };
     if(userPowerups !== null && userPowerups.powerups !== null){
       powerups = userPowerups.powerups;
     }
