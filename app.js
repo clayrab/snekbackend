@@ -111,7 +111,7 @@ app.get('/getTransactions', passport.authenticate('jwt', { session: false }), sn
 // LevelUnlockedETH(“Upgrade Mining Camp”)+ETH
 // PowerupsBought+ETH
 
-//app.get('/checkCreds',  passport.authenticate('jwt', { session: false }), snekRoutes.checkCredsRoute )
+
 app.post('/recordScore', passport.authenticate('jwt', { session: false }), snekRoutes.recordScoreRoute);
 
 app.post('/createTransaction', passport.authenticate('jwt', { session: false }), snekRoutes.createTransactionRoute);
@@ -132,6 +132,7 @@ app.post('/createLocalUser', auth.createLocalUserRoute);
 app.post('/createLocalUserFromKey', auth.createLocalUserFromKeyRoute);
 app.post('/changePassword', passport.authenticate('jwt', { session: false }), auth.changePasswordRoute);
 app.post('/editProfile', passport.authenticate('jwt', { session: false }), auth.editProfileRoute);
+app.get('/checkCreds',  passport.authenticate('jwt', { session: false }), auth.checkCredsRoute )
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

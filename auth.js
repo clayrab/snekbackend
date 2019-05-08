@@ -47,6 +47,10 @@ exports.jwtStrategy = new JwtStrategy({
     done(null, {name: user.name, pubkey: jwt_payload.pubkey, randomSecret: jwt_payload.randomSecret, });
   }
 );
+
+exports.checkCredsRoute = async (req, res, next) => {
+  utils.ok200({status: "OK"}, res);
+}
 exports.changePasswordRoute = async (req, res, next) => {
   try {
     if(!req.body.user || !req.body.pw || !req.body.newpw){
