@@ -205,13 +205,9 @@ exports.loginRoute = function(req, res, next) {
             privKey = crypt.decrypt(user.keycrypt, user.name+config.ownerSalt+config.aesSalt);
           }
           console.log("login, set private key.")
-          // owner key must be accessible to entire app, so it is encrypted differently
-          console.log(privKey);
           let randomSecret = await crypt.randomSecret();
           let runtimeKeyCrypt = crypt.encrypt(privKey, user.name+randomSecret+config.aesSalt);
-          console.log("Logged in! Setting key cache for user: " + user.name)
           await keyCache.keyCacheSet(user.name, runtimeKeyCrypt);
-
           let payload = {name: user.name, pubkey: user.pubkey, randomSecret: randomSecret};
           let token = JWT.sign(payload, config.jwtSalt, {expiresIn: config.jwtExpirationTime});
           JWT.verify(token, config.jwtSalt, function(err, data){
