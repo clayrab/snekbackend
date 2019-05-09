@@ -18,6 +18,8 @@ const keyCache = require("./utils/keyCache.js");
 const web3 = require("./utils/web3Instance.js").web3;
 const socketIo = require("socket.io");
 
+var session = require('express-session')
+
 let app = express();
 const server = http.createServer(app);
 
@@ -83,16 +85,88 @@ app.use(bodyParser.urlencoded({extended: false}));
 app.use(cookieParser());
 
 app.use(express.static('static')); // static assets
+app.use(session({ secret: 'keyboard cat', cookie: { maxAge: 60000 }}))
 
 //passport.use(auth.loginStrategy);
 passport.use(auth.passwordStrategy);
 passport.use('jwt', auth.jwtStrategy);
+passport.use(auth.googleStrategy);
+passport.use(auth.oauth2Strategy);
 
 app.post('/createSnekToken', passport.authenticate('jwt', { session: false }), snekRoutes.createSnekTokenRoute);
 app.post('/setRoot', snekRoutes.setRootRoute);
 //app.post('/synchronizeEvents', passport.authenticate('jwt', { session: false }), snekRoutes.synchronizeEventsRoute);
 
 app.post('/login', auth.loginRoute);
+app.post('/loginGoogle',
+  passport.authenticate('oauth2', { failureRedirect: '/login' }),
+  auth.loginGoogleRoute);
+app.post('/loginGoogle2',
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  auth.loginGoogleRoute);
+app.post('/loginGoogle3',
+  function (req, res, next) {
+    console.log("here?")
+    passport.authenticate('google', function (error, user, info) {
+      // this will execute in any case, even if a passport strategy will find an error
+      // log everything to console
+      console.log("googlegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegoogle");
+      console.log(error);
+      console.log(user);
+      console.log(info);
+
+      if (error) {
+        res.status(401).send(error);
+      } else if (!user) {
+        res.status(401).send(info);
+      } else {
+        next();
+      }
+
+      res.status(401).send(info);
+    })(req, res)
+  },
+  auth.loginGoogleRoute);
+app.post('/loginGoogle4',
+  function (req, res, next) {
+    console.log("here2?")
+    passport.authenticate('oauth2', function (error, user, info) {
+      // this will execute in any case, even if a passport strategy will find an error
+      // log everything to console
+      console.log("googlegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegoogle");
+      console.log(error);
+      console.log(user);
+      console.log(info);
+
+      if (error) {
+        res.status(401).send(error);
+      } else if (!user) {
+        res.status(401).send(info);
+      } else {
+        next();
+      }
+
+      res.status(401).send(info);
+    })(req, res)
+  },
+  auth.loginGoogleRoute);
+
+
+
+
+// app.get('/loginGoogle3', passport.authenticate('google'), (req, res) => {
+//     res.send('You have reached the secret route');
+// });
+//app.get('/loginGoogle', passport.authenticate('bearer', { session: false }), auth.loginGoogleRoute);
+// app.get('/loginGoogle2', passport.authenticate('google', { failureRedirect: '/login' }))
+// app.get('/loginGoogle3', passport.authenticate('google', { failureRedirect: '/login' }))
+//app.get('/loginGoogle', passport.authenticate('google'), auth.loginGoogleRoute)
+// app.get('/auth/google/callback',
+//
+//   function(req, res) {
+//     res.redirect('/');
+//   });
+
 
 app.get('/getLastGas', snekRoutes.getLastGasRoute);
 app.get('/getPrices', snekRoutes.getPricesRoute);
@@ -132,7 +206,7 @@ app.post('/createLocalUser', auth.createLocalUserRoute);
 app.post('/createLocalUserFromKey', auth.createLocalUserFromKeyRoute);
 app.post('/changePassword', passport.authenticate('jwt', { session: false }), auth.changePasswordRoute);
 app.post('/editProfile', passport.authenticate('jwt', { session: false }), auth.editProfileRoute);
-app.get('/checkCreds',  passport.authenticate('jwt', { session: false }), auth.checkCredsRoute )
+app.get('/checkCreds',  passport.authenticate('jwt', { session: false }), auth.checkCredsRoute)
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

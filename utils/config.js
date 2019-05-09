@@ -16,6 +16,7 @@ exports.chainId = 3; // EIP 155. Needs to be 1 for mainnet, 3 for ropsten.
 exports.gameMax = 1000;
 exports.rootBlockNumber = 4796000;
 exports.network = "dev";
+exports.googleOauthClientIDiOS = "384585138051-rbt6p2o3a6pfc2ied769ogcgebcnap7d.apps.googleusercontent.com";
 if(currentEnv == "qa") {
   exports.network = "ropsten";
   //exports.rootBlockNumber = 4764546;
