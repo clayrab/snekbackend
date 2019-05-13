@@ -1,14 +1,6 @@
 const LocalStrategy = require('passport-local').Strategy;
 const JwtStrategy = require('passport-jwt').Strategy;
-//const GoogleStrategy = require('passport-google-oauth').OAuth2Strategy;
-const OAuth2Strategy = require('passport-oauth2');
-//var GoogleStrategy = require('passport-google-oauth20').Strategy;
-const GoogleStrategy = require('passport-google-oauth20');
-//var BearerStrategy = require('passport-http-bearer').Strategy;
-//let OpenIDStrategy = require('passport-openid').Strategy;
-// var OICStrategy = require('passport-openid-connect').Strategy
-// var OICStrategy2 = require('passport-openidconnect').Strategy;
-//var User = require('passport-openid-connect').User
+const GoogleTokenStrategy = require('passport-google-id-token');
 const ExtractJwt = require('passport-jwt').ExtractJwt;
 const passport = require('passport');
 const bcrypt = require('bcryptjs');
@@ -56,101 +48,26 @@ exports.jwtStrategy = new JwtStrategy({
     done(null, {name: user.name, pubkey: jwt_payload.pubkey, randomSecret: jwt_payload.randomSecret, });
   }
 );
-exports.oauth2Strategy = new OAuth2Strategy({
-    authorizationURL: 'https://accounts.google.com/o/oauth2/v2/auth',
-    //tokenURL: 'https://www.googleapis.com/oauth2/v4/token',
-    //callbackURL: "com.claytonrabenda.snek://oauthredirect",
-    //authorizationURL: 'https://www.example.com/oauth2/authorize',
-    tokenURL: 'https://www.example.com/oauth2/token',
-    callbackURL: "http://localhost:3000/auth/example/callback",
-    clientID: "620503403501-os62lfr7up8q48cpklcvlihd1annvpoi.apps.googleusercontent.com",
-    //clientSecret: "????",
-    state: true,
-    pkce: true
+// -Expo iOS clientID(host.exp.exponent bundleId):
+// 620503403501-v46v5kk2gg0p72i6oi0d2e8onm01p6a9.apps.googleusercontent.com
+// -Expo Android clientID(host.exp.exponent bundleId):
+// 620503403501-d6stchtjia63djtggiaaespeapl0ist3.apps.googleusercontent.com
+// -iOS Client ID:
+// 620503403501-k6v8ghht8dr639uhhjr8gpk4p9iogbq2.apps.googleusercontent.com
+// -Android Client ID:
+// 620503403501-os62lfr7up8q48cpklcvlihd1annvpoi.apps.googleusercontent.com
+// -Web Client ID:
+// 620503403501-5a09pm3ih5l3o6s6o4vecj6ftg9teh2p.apps.googleusercontent.com
+exports.googleTokenStrategy = new GoogleTokenStrategy({
+    clientID: "620503403501-v46v5kk2gg0p72i6oi0d2e8onm01p6a9.apps.googleusercontent.com",
   },
-  function(accessToken, refreshToken, profile, cb) {
-    console.log("OAuth2Strategy")
-    done(null, {})
+  function(parsedToken, googleId, done) {
+    done(null, parsedToken);
   }
 )
-
-exports.googleStrategy = new GoogleStrategy({
-    // clientSecret: "asdfsdf",
-    // authorizationURL: 'https://accounts.google.com/o/oauth2/v2/auth',
-    tokenURL: 'https://www.googleapis.com/oauth2/v4/token',
-    callbackURL: "com.claytonrabenda.snek://oauthredirect",
-    //authorizationURL: 'https://www.example.com/oauth2/authorize',
-    //tokenURL: 'https://www.example.com/oauth2/token',
-    //callbackURL: "http://localhost:3000/auth/example/callback",
-    clientID: "620503403501-os62lfr7up8q48cpklcvlihd1annvpoi.apps.googleusercontent.com",
-    //callbackURL: "com.claytonrabenda.snek://oauthredirect",
-    state: true,
-    pkce: true
-  },
-   async (accessToken, refreshToken, profile, done) => {
-    console.log("googleStrategy2")
-    done(null, {})
-  }
-)
-// var oic = new OICStrategy({
-//   "issuerHost": "https://accounts.google.com/",
-//   "client_id": "620503403501-k6v8ghht8dr639uhhjr8gpk4p9iogbq2.apps.googleusercontent.com",
-//   "client_secret": "eaa3d8c3-517a-4a58-b559-85dacae5fc66",
-//   "redirect_uri": "com.claytonrabenda.snek://callback",
-//   "scope": "openid email profile",
-// });
-
-// passport.use(new OpenIDStrategy({
-//     returnURL: 'com.claytonrabenda.snek://',
-//     realm: 'http://www.example.com/'
-//   },
-//   function(identifier, done) {
-//     User.findOrCreate({ openId: identifier }, function(err, user) {
-//       done(err, user);
-//     });
-//   }
-// ));
-// exports.googleStrategy = new GoogleStrategy({
-//     //clientSecret: "asdfsdf",
-//     clientID: "620503403501-os62lfr7up8q48cpklcvlihd1annvpoi.apps.googleusercontent.com",
-//     callbackURL: "com.claytonrabenda.snek://oauthredirect"
-//   },
-//   function(accessToken, refreshToken, profile, done) {
-//     console.log("googleStrategy")
-//     console.log(token)
-//     console.log(tokenSecret)
-//     console.log(profile)
-//     console.log(profile.id)
-//     done(null, {})
-//        // User.findOrCreate({ googleId: profile.id }, function (err, user) {
-//        //   return done(err, user);
-//        // });
-//   }
-// )
-// exports.bearerStrategy = new BearerStrategy(
-//   function(token, done) {
-//     console.log(token)
-//     done(null, {})
-//   }
-// )
-// exports.oauth2Strategy = new OA2Strategy({
-//     authorizationURL: 'https://www.example.com/oauth2/authorize',
-//     tokenURL: 'https://www.example.com/oauth2/token',
-//     clientID: "620503403501-os62lfr7up8q48cpklcvlihd1annvpoi.apps.googleusercontent.com",
-//     //clientSecret: EXAMPLE_CLIENT_SECRET,
-//     callbackURL: "http://localhost:3000/auth/example/callback"
-//   },
-//   function(accessToken, refreshToken, profile, cb) {
-//     User.findOrCreate({ exampleId: profile.id }, function (err, user) {
-//       return cb(err, user);
-//     });
-//   }
-// )
-// exports.loginGoogleRoute = function(req, res) {
-//     res.redirect('/');
-//   }
 exports.loginGoogleRoute = async (req, res, next) => {
   console.log("loginGoogleRoute")
+  console.log(req)
   utils.ok200({status: "OK"}, res);
 }
 exports.checkCredsRoute = async (req, res, next) => {

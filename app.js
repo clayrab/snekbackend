@@ -83,15 +83,35 @@ app.use(passport.initialize());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(cookieParser());
-
 app.use(express.static('static')); // static assets
-app.use(session({ secret: 'keyboard cat', cookie: { maxAge: 60000 }}))
 
-//passport.use(auth.loginStrategy);
 passport.use(auth.passwordStrategy);
 passport.use('jwt', auth.jwtStrategy);
-passport.use(auth.googleStrategy);
-passport.use(auth.oauth2Strategy);
+passport.use(auth.googleTokenStrategy);
+passport.serializeUser(function(user, done) {
+  done(null, user);
+});
+passport.deserializeUser(function(user, done) {
+  done(null, user);
+});
+
+// Call the middleware thusly to get debug info out of passport:
+// app.post('/loginGoogle2',
+//   function (req, res, next) {
+//     passport.authenticate('google-id-token', function (error, user, info) {
+//       // this will execute in any case, even if a passport strategy will find an error
+//       // log everything to console
+//       if (error) {
+//         res.status(401).send(error);
+//       } else if (!user) {
+//         res.status(401).send(info);
+//       } else {
+//         console.log("here!!")
+//         next();
+//       }
+//     })(req, res)
+//   },
+//   auth.loginGoogleRoute);
 
 app.post('/createSnekToken', passport.authenticate('jwt', { session: false }), snekRoutes.createSnekTokenRoute);
 app.post('/setRoot', snekRoutes.setRootRoute);
@@ -99,75 +119,9 @@ app.post('/setRoot', snekRoutes.setRootRoute);
 
 app.post('/login', auth.loginRoute);
 app.post('/loginGoogle',
-  passport.authenticate('oauth2', { failureRedirect: '/login' }),
-  auth.loginGoogleRoute);
-app.post('/loginGoogle2',
-  passport.authenticate('google', { failureRedirect: '/login' }),
-  auth.loginGoogleRoute);
-app.post('/loginGoogle3',
-  function (req, res, next) {
-    console.log("here?")
-    passport.authenticate('google', function (error, user, info) {
-      // this will execute in any case, even if a passport strategy will find an error
-      // log everything to console
-      console.log("googlegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegoogle");
-      console.log(error);
-      console.log(user);
-      console.log(info);
-
-      if (error) {
-        res.status(401).send(error);
-      } else if (!user) {
-        res.status(401).send(info);
-      } else {
-        next();
-      }
-
-      res.status(401).send(info);
-    })(req, res)
-  },
-  auth.loginGoogleRoute);
-app.post('/loginGoogle4',
-  function (req, res, next) {
-    console.log("here2?")
-    passport.authenticate('oauth2', function (error, user, info) {
-      // this will execute in any case, even if a passport strategy will find an error
-      // log everything to console
-      console.log("googlegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegooglegoogle");
-      console.log(error);
-      console.log(user);
-      console.log(info);
-
-      if (error) {
-        res.status(401).send(error);
-      } else if (!user) {
-        res.status(401).send(info);
-      } else {
-        next();
-      }
-
-      res.status(401).send(info);
-    })(req, res)
-  },
-  auth.loginGoogleRoute);
-
-
-
-
-// app.get('/loginGoogle3', passport.authenticate('google'), (req, res) => {
-//     res.send('You have reached the secret route');
-// });
-//app.get('/loginGoogle', passport.authenticate('bearer', { session: false }), auth.loginGoogleRoute);
-// app.get('/loginGoogle2', passport.authenticate('google', { failureRedirect: '/login' }))
-// app.get('/loginGoogle3', passport.authenticate('google', { failureRedirect: '/login' }))
-//app.get('/loginGoogle', passport.authenticate('google'), auth.loginGoogleRoute)
-// app.get('/auth/google/callback',
-//
-//   function(req, res) {
-//     res.redirect('/');
-//   });
-
-
+  passport.authenticate('google-id-token'),
+  auth.loginGoogleRoute
+);
 app.get('/getLastGas', snekRoutes.getLastGasRoute);
 app.get('/getPrices', snekRoutes.getPricesRoute);
 app.get('/getOwner', snekRoutes.getOwnerRoute);
@@ -184,7 +138,6 @@ app.get('/getTransactions', passport.authenticate('jwt', { session: false }), sn
 // LevelUnlockedSNK(“Upgrade Mining Camp”)+SNK
 // LevelUnlockedETH(“Upgrade Mining Camp”)+ETH
 // PowerupsBought+ETH
-
 
 app.post('/recordScore', passport.authenticate('jwt', { session: false }), snekRoutes.recordScoreRoute);
 
