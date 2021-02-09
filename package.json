@@ -31,7 +31,7 @@
     "passport-openid-connect": "^0.1.0",
     "passport-openidconnect": "0.0.2",
     "pug": "2.0.0-beta11",
-    "socket.io": "^2.1.1",
+    "socket.io": "^2.4.0",
     "web3": "^1.0.0-beta.37"
   }
 }
