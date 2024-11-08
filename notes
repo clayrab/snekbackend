@@ -1,3 +1,5 @@
+
+
 truncate user; truncate usermap;
 truncate chainevent; truncate block; truncate contract; truncate game; truncate usergames;
 truncate userchainevents;
